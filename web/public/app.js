@@ -10,6 +10,8 @@ const estado = {
   paradas: {}, lineas: {}, trazados: null, horario: null, dia: null, destinos: new Map(),
   vivo: new Map(), posiciones: [], ts: 0, estacion: leerEstacion(), filtro: new Set(), mapa: null,
   previo: { estacion: null, filas: new Map() }, // lo que mostraba el panel, para girar solo lo que cambia
+  puntualidad: new Map(), // por línea, de /api/lineas (para la ficha de cada línea)
+  fichasAbiertas: new Set(), // fichas de línea con la lista de trenes completa
 };
 globalThis.__rodalies = estado; // para depurar desde la consola (y para las pruebas con Playwright)
 
@@ -27,6 +29,7 @@ function leerEstacion() {
 iniciar();
 
 async function iniciar() {
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   prepararTema();
   prepararReloj();
   $('buscador-icono').innerHTML = icono('buscar');
@@ -99,6 +102,7 @@ async function cargarVivo() {
 function pintar() {
   pintarAhora();
   pintarPeores();
+  pintarFichas();
   pintarTrenesEnMapa();
   pintarTablero();
 }
@@ -188,6 +192,7 @@ function prepararMapa() {
     trazados: estado.trazados,
     paradas: estado.paradas,
     alElegirEstacion: (id) => elegirEstacion(id, { volar: false, irAlPanel: true }),
+    alElegirLinea: (linea) => alternarLinea(linea, true),
     contenidoTren,
   });
   estado.mapa.mapa.on('load', () => {
@@ -242,13 +247,74 @@ function prepararFiltro() {
   caja.addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.classList.contains('filtro-todas')) estado.filtro.clear();
-    else if (estado.filtro.has(b.dataset.linea)) estado.filtro.delete(b.dataset.linea);
-    else estado.filtro.add(b.dataset.linea);
-    caja.querySelector('.filtro-todas').setAttribute('aria-pressed', String(!estado.filtro.size));
-    caja.querySelectorAll('[data-linea]').forEach((x) => x.setAttribute('aria-pressed', String(estado.filtro.has(x.dataset.linea))));
-    estado.mapa?.filtrarLineas(estado.filtro);
+    if (b.classList.contains('filtro-todas')) {
+      estado.filtro.clear();
+      aplicarFiltro();
+    } else alternarLinea(b.dataset.linea);
   });
+  $('fichas-linea').addEventListener('click', (e) => {
+    const cerrar = e.target.closest('[data-cerrar]');
+    if (cerrar) return alternarLinea(cerrar.dataset.cerrar);
+    const mas = e.target.closest('[data-mas]');
+    if (mas) {
+      estado.fichasAbiertas.add(mas.dataset.mas);
+      return pintarFichas();
+    }
+    const tren = e.target.closest('[data-clave]');
+    if (tren) estado.mapa?.enfocarTren(tren.dataset.clave);
+  });
+}
+
+/** Elige o quita una línea; con `sola`, deja solo esa (al tocar su trazado en el mapa). */
+function alternarLinea(linea, sola = false) {
+  if (sola) {
+    const yaEraLaUnica = estado.filtro.size === 1 && estado.filtro.has(linea);
+    estado.filtro.clear();
+    if (!yaEraLaUnica) estado.filtro.add(linea);
+  } else if (estado.filtro.has(linea)) estado.filtro.delete(linea);
+  else estado.filtro.add(linea);
+  aplicarFiltro();
+}
+
+function aplicarFiltro() {
+  const caja = $('filtro-lineas');
+  caja.querySelector('.filtro-todas').setAttribute('aria-pressed', String(!estado.filtro.size));
+  caja.querySelectorAll('[data-linea]').forEach((x) => x.setAttribute('aria-pressed', String(estado.filtro.has(x.dataset.linea))));
+  estado.mapa?.filtrarLineas(estado.filtro);
+  pintarFichas();
+}
+
+// Ficha de cada línea elegida: recorrido, trenes de ahora y puntualidad de la semana.
+function pintarFichas() {
+  const conPosicion = new Set(estado.posiciones.map(([tren, linea]) => `${tren}|${linea}`));
+  $('fichas-linea').innerHTML = [...estado.filtro].slice(0, 3).map((linea) => {
+    const trenes = [...estado.vivo.values()].filter((t) => t[1] === linea).sort((a, b) => (b[2] ?? -1) - (a[2] ?? -1));
+    const enMarcha = trenes.filter((t) => !t[4] && t[2] !== null);
+    const tarde = enMarcha.filter((t) => t[2] >= UMBRAL).length;
+    const p = estado.puntualidad.get(linea);
+    const semana = p
+      ? `<span>Esta semana: <strong>${numero((p.puntuales / p.con_dato) * 100)} %</strong> puntuales · retraso medio <strong>${numero((p.retraso_medio ?? 0) / 60, 1)} min</strong></span>`
+      : '';
+    const MAXIMO = 6;
+    const abierta = estado.fichasAbiertas.has(linea);
+    const visibles = abierta ? trenes : trenes.slice(0, MAXIMO);
+    const resto = trenes.length - visibles.length;
+    const lista = visibles.map((t) => {
+      const clave = `${t[0]}|${t[1]}`;
+      const destino = estado.destinos.get(clave);
+      const retraso = t[4] ? '<span class="ficha-retraso estado-cancelado">Cancel.</span>'
+        : t[2] >= 180 ? `<span class="ficha-retraso ${t[2] >= 600 ? 'estado-cancelado' : 'estado-retraso'}">+${minutos(t[2])}′</span>`
+          : '<span class="ficha-retraso estado-hora">A su hora</span>';
+      return `<li><button type="button" data-clave="${clave}" ${conPosicion.has(clave) ? '' : 'disabled'}>${retraso}<span class="ficha-destino">a ${destino ? nombre(destino) : `tren ${t[0]}`}</span></button></li>`;
+    }).join('');
+    return `<article class="ficha-linea" style="--color:#${colorDe(linea)}">
+      <div class="ficha-cab">${chip(linea)}<h3>${estado.lineas[linea]?.nombre ?? `Línea ${linea}`}</h3>
+        <button type="button" class="enlace ficha-cerrar" data-cerrar="${linea}">Quitar</button></div>
+      <p class="ficha-datos"><span>Ahora: <strong>${enMarcha.length} ${enMarcha.length === 1 ? 'tren' : 'trenes'}</strong>${enMarcha.length ? `, ${tarde} con 5 min o más` : ''}</span>${semana}</p>
+      ${lista ? `<ul class="ficha-trenes">${lista}</ul>` : '<p class="ficha-vacia">No circula ningún tren de esta línea ahora mismo.</p>'}
+      ${resto > 0 ? `<button type="button" class="enlace ficha-mas" data-mas="${linea}">Ver los otros ${resto} trenes</button>` : ''}
+    </article>`;
+  }).join('');
 }
 
 // ---------- Tu estación ----------
@@ -338,6 +404,8 @@ async function cargarLineas() {
     $('lineas-sub').textContent = 'No se han podido cargar los datos de las líneas.';
     return;
   }
+  estado.puntualidad = new Map(datos.lineas.filter((l) => l.con_dato >= 3).map((l) => [l.linea, l]));
+  pintarFichas();
   const lineas = datos.lineas.filter((l) => l.con_dato >= 3);
   const desde = lineas.reduce((a, l) => (!a || l.primera_fecha < a ? l.primera_fecha : a), null);
   const fecha = (f) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${f}T12:00:00Z`));

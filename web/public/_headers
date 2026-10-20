@@ -1,0 +1,3 @@
+# El service worker se revisa siempre, para que las actualizaciones lleguen enseguida.
+/sw.js
+  Cache-Control: no-cache

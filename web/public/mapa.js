@@ -17,7 +17,7 @@ const MOVIMIENTO_MS = 2200;
 const vacio = { type: 'FeatureCollection', features: [] };
 const quieto = matchMedia('(prefers-reduced-motion: reduce)');
 
-export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstacion, contenidoTren }) {
+export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstacion, alElegirLinea, contenidoTren }) {
   const movil = matchMedia('(max-width: 700px)').matches;
   const mapa = new maplibregl.Map({
     container: contenedor,
@@ -102,13 +102,18 @@ export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstac
 
   // ---- Interacción ----
   const emergente = new maplibregl.Popup({ closeButton: false, offset: 14, maxWidth: '280px', className: 'emergente' });
-  for (const capa of ['trenes', 'estaciones']) {
+  for (const capa of ['trenes', 'estaciones', 'trazados']) {
     mapa.on('mouseenter', capa, () => (mapa.getCanvas().style.cursor = 'pointer'));
     mapa.on('mouseleave', capa, () => (mapa.getCanvas().style.cursor = ''));
   }
   mapa.on('click', 'trenes', (e) => {
     const f = e.features[0];
     emergente.setLngLat(f.geometry.coordinates).setHTML(contenidoTren(f.properties)).addTo(mapa);
+  });
+  // Tocar el trazado de una línea la elige (si no hay un tren o una estación justo ahí).
+  mapa.on('click', 'trazados', (e) => {
+    if (mapa.queryRenderedFeatures(e.point, { layers: ['trenes', 'estaciones'].filter((c) => mapa.getLayer(c)) }).length) return;
+    alElegirLinea?.(e.features[0].properties.linea);
   });
   mapa.on('click', 'estaciones', (e) => {
     if (mapa.queryRenderedFeatures(e.point, { layers: ['trenes'] }).length) return; // el tren tiene prioridad
@@ -177,6 +182,15 @@ export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstac
 
     filtrarLineas(lineas) {
       filtro = lineas?.size ? lineas : null;
+      // Al elegir líneas, el mapa se ajusta para enseñarlas enteras.
+      if (filtro) {
+        const puntos = trazados.features.filter((f) => filtro.has(f.properties.linea)).flatMap((f) => f.geometry.coordinates);
+        if (puntos.length) {
+          const lons = puntos.map((p) => p[0]), lats = puntos.map((p) => p[1]);
+          mapa.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
+            { padding: 40, maxZoom: 12, duration: quieto.matches ? 0 : 900 });
+        }
+      }
       if (!mapa.getLayer('trenes')) return;
       mapa.setFilter('trazados', filtroLineas());
       mapa.setFilter('trazados-borde', filtroLineas());

@@ -86,7 +86,8 @@ main { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
 /* ---------- Portada: el estado de ahora + el mapa en directo ---------- */
 .portada {
   max-width: 1240px; margin: 0 auto; padding: 24px 20px 8px;
-  display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); grid-template-areas: 'panel mapa' 'panel filtro'; gap: 14px 28px;
+  display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  grid-template-areas: 'panel mapa' 'peores mapa' 'peores filtro'; grid-template-rows: auto 1fr auto; gap: 14px 28px; align-items: start;
 }
 .panel-ahora { grid-area: panel; padding-top: 12px; }
 .titular { font-weight: 800; font-size: clamp(2rem, 3.4vw, 2.9rem); line-height: 1.03; letter-spacing: -0.035em; text-wrap: balance; }
@@ -108,7 +109,8 @@ main { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
 .red-leyenda strong { color: var(--tinta); }
 
 /* Los que van más tarde: filas como un marcador, sin cajas */
-.peores { margin-top: 30px; }
+.peores { grid-area: peores; margin-top: 16px; }
+.bloque-ayuda { margin-top: 4px; font-size: 0.8125rem; line-height: 1.45; color: var(--tinta-3); }
 .peores-lista { list-style: none; margin: 8px 0 0; padding: 0; border-top: 1px solid var(--linea); }
 .peores-lista button {
   width: 100%; min-height: 52px; display: grid; grid-template-columns: 3.2em auto minmax(0, 1fr); align-items: center; gap: 12px;
@@ -124,13 +126,40 @@ main { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
 .peor-retraso.mucho { color: var(--mal); }
 .peores-vacio { padding: 12px 0; color: var(--tinta-3); font-size: 0.9375rem; }
 
-.mapa-marco { grid-area: mapa; position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--linea); background: var(--fondo-2); }
+.mapa-marco { grid-area: mapa; align-self: stretch; position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--linea); background: var(--fondo-2); }
 .mapa { height: clamp(460px, 68vh, 720px); }
 .mapa-error { padding: 40px; color: var(--tinta-3); }
 .bajo-mapa { grid-area: filtro; align-self: start; display: grid; gap: 10px; min-width: 0; }
 .leyenda-mapa { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; font-size: 0.8125rem; color: var(--tinta-2); }
 .leyenda-mapa span { display: inline-flex; align-items: center; gap: 6px; }
-.leyenda-ayuda { color: var(--tinta-3); }
+.leyenda-texto { color: var(--tinta-3); }
+.filtro { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.filtro-etiqueta { flex: none; font-size: 0.8125rem; font-weight: 600; color: var(--tinta-3); }
+
+/* Ficha de una línea elegida, bajo el mapa */
+.fichas-linea { display: grid; gap: 12px; }
+.fichas-linea:empty { display: none; }
+.ficha-linea { border: 1px solid var(--linea); border-left: 6px solid var(--color); border-radius: 12px; padding: 16px 18px; background: var(--fondo); }
+.ficha-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.ficha-cab h3 { font-size: 1.125rem; font-weight: 800; letter-spacing: -0.01em; }
+.ficha-cerrar { margin-left: auto; }
+.ficha-datos { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 8px; font-size: 0.9375rem; color: var(--tinta-2); }
+.ficha-datos strong { color: var(--tinta); }
+.ficha-trenes { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; }
+.ficha-trenes button {
+  width: 100%; min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 9px;
+  border: 1px solid var(--linea); background: transparent; cursor: pointer; text-align: left; font-size: 0.875rem;
+}
+.ficha-trenes button:hover:not(:disabled) { border-color: var(--tinta); }
+.ficha-trenes button:disabled { cursor: default; }
+.ficha-trenes .ficha-retraso { flex: none; min-width: 3.4em; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ficha-trenes .ficha-destino { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ficha-mas { margin-top: 8px; }
+.estado-hora { color: var(--bien); }
+.estado-retraso { color: var(--medio); }
+.estado-retraso.mucho, .estado-cancelado { color: var(--mal); }
+.estado-sin { color: var(--tinta-3); font-weight: 500; }
+.ficha-vacia { margin-top: 10px; color: var(--tinta-3); font-size: 0.9375rem; }
 .anillo { width: 12px; height: 12px; border-radius: 50%; background: #7dbcec; border: 2.5px solid var(--fondo); box-shadow: 0 0 0 1px var(--linea); }
 .anillo.tarde { border-color: var(--tarde); box-shadow: none; }
 .anillo.muy-tarde { border-color: var(--muy-tarde); box-shadow: 0 0 0 3px color-mix(in srgb, var(--muy-tarde) 30%, transparent); }
@@ -242,12 +271,20 @@ main { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
 .pie p { max-width: 70ch; color: var(--tinta-2); font-size: 0.9375rem; line-height: 1.6; }
 
 @media (max-width: 900px) {
-  .portada { grid-template-columns: 1fr; grid-template-areas: 'panel' 'mapa' 'filtro'; }
-  .mapa { height: 62vh; min-height: 380px; }
+  .portada { grid-template-columns: 1fr; grid-template-areas: 'panel' 'mapa' 'filtro' 'peores'; grid-template-rows: none; }
+  .mapa { height: 58vh; min-height: 360px; }
+  .peores { margin-top: 18px; }
 }
 @media (max-width: 700px) {
   main, .cabecera, .pie, .portada { padding-left: 16px; padding-right: 16px; }
   .frescura { display: none; }
+  .filtro { flex-direction: column; align-items: stretch; gap: 6px; }
+  .ficha-trenes { grid-template-columns: 1fr; }
+  .estacion-cab h2 { width: 100%; }
+  .buscador { flex-basis: 100%; max-width: none; }
+  .atajos { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; scrollbar-width: none; }
+  .atajos button { flex: none; min-height: 40px; }
+  .salida-destino strong { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.25; }
   .leyenda-ayuda { display: none; }
   .tablero-cab { display: none; }
   .salida { grid-template-columns: 4.4em minmax(0, 1fr) auto; grid-template-areas: 'hora destino estado' 'hora linea estado'; gap: 4px 12px; padding: 10px 14px 10px 18px; }
@@ -258,3 +295,10 @@ main { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
   .fila-linea { grid-template-columns: 3.5em minmax(60px, 1fr) 5em 5.5em; }
   .fila-linea > :nth-child(5) { display: none; }
 }
+
+/* Botón con aspecto de enlace ("Quitar" en la ficha de una línea) */
+.enlace {
+  border: 0; background: none; padding: 0 4px; min-height: 36px; color: var(--tinta-2); font-weight: 500; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 0.2em;
+}
+.enlace:hover { color: var(--tinta); }

@@ -95,11 +95,23 @@ for (const c of filas['calendar.txt']) {
   }
 }
 
-// ---- Líneas, con su color ----
+// ---- Líneas, con su color y su recorrido principal ----
+// Cada línea tiene muchas rutas (variantes y sentidos); su nombre es el de la ruta con más viajes.
+// route_long_name viene como "Molins de Rei                    -Maçanet-Massanes": origen, espacios y "-destino".
+const viajesPorRuta = new Map();
+for (const v of filas['trips.txt']) if (v.route_id.startsWith(`${RED}T`)) viajesPorRuta.set(v.route_id, (viajesPorRuta.get(v.route_id) ?? 0) + 1);
 const lineas = {};
+const mejorRuta = {};
 for (const r of filas['routes.txt']) {
   if (!r.route_id.startsWith(`${RED}T`)) continue;
-  lineas[r.route_short_name] ??= { color: r.route_color, texto: r.route_text_color };
+  const linea = r.route_short_name;
+  lineas[linea] ??= { color: r.route_color, texto: r.route_text_color };
+  const viajes = viajesPorRuta.get(r.route_id) ?? 0;
+  if (viajes > (mejorRuta[linea] ?? -1)) {
+    mejorRuta[linea] = viajes;
+    const [origen, destino] = r.route_long_name.split(/\s+-/).map((x) => x.trim());
+    lineas[linea].nombre = destino ? `${origen} – ${destino}` : origen;
+  }
 }
 
 // ---- Viajes por día ----

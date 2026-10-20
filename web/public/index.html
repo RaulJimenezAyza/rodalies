@@ -12,6 +12,20 @@
     </script>
     <link rel="canonical" href="https://rodalies.reloda.es/" />
     <link rel="icon" href="icono.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-title" content="Rodalies" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="es_ES" />
+    <meta property="og:url" content="https://rodalies.reloda.es/" />
+    <meta property="og:site_name" content="Rodalies al minuto" />
+    <meta property="og:title" content="¿Tu tren va tarde? · Rodalies al minuto" />
+    <meta property="og:description" content="Todos los trenes de Rodalies en el mapa, en directo, y las salidas de tu estación con su retraso real." />
+    <meta property="og:image" content="https://rodalies.reloda.es/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Panel de salidas de Rodalies con la hora, la línea, el destino y el retraso de cada tren" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preload" href="fuentes/archivo.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
@@ -42,25 +56,30 @@
         <p class="ahora-texto" id="ahora-texto"></p>
         <div class="red">
           <h2 class="bloque-titulo">La red ahora <span id="red-total"></span></h2>
+          <p class="bloque-ayuda">Cada raya es un tren circulando, de los que van a su hora (gris) a los que van muy tarde (rojo). Toca una para verlo en el mapa.</p>
           <div class="red-barras" id="red-barras" role="img"></div>
           <p class="red-leyenda" id="red-leyenda"></p>
         </div>
-        <div class="peores">
-          <h2 class="bloque-titulo">Los que van más tarde</h2>
-          <ol class="peores-lista" id="peores"></ol>
-        </div>
+      </div>
+      <div class="peores">
+        <h2 class="bloque-titulo">Los que van más tarde</h2>
+        <ol class="peores-lista" id="peores"></ol>
       </div>
       <div class="mapa-marco">
         <div class="mapa" id="mapa" role="application" aria-label="Mapa de Rodalies con los trenes en directo"></div>
       </div>
       <div class="bajo-mapa">
         <p class="leyenda-mapa">
-          <span><i class="anillo"></i>A su hora</span>
+          <span class="leyenda-texto">Cada punto es un tren, del color de su línea. Su borde dice el retraso:</span>
+          <span><i class="anillo"></i>a su hora</span>
           <span><i class="anillo tarde"></i>3 min o más</span>
           <span><i class="anillo muy-tarde"></i>10 min o más</span>
-          <span class="leyenda-ayuda">Toca un tren o una estación del mapa.</span>
         </p>
-        <div class="filtro-lineas" id="filtro-lineas" role="group" aria-label="Ver solo algunas líneas"></div>
+        <div class="filtro">
+          <span class="filtro-etiqueta" id="filtro-etiqueta">Ver una línea</span>
+          <div class="filtro-lineas" id="filtro-lineas" role="group" aria-labelledby="filtro-etiqueta"></div>
+        </div>
+        <div class="fichas-linea" id="fichas-linea" aria-live="polite"></div>
       </div>
     </section>
 
@@ -78,8 +97,9 @@
         <div class="atajos" id="atajos" aria-label="Estaciones frecuentes"></div>
         <div class="tablero" id="tablero" aria-live="polite"></div>
         <p class="tablero-nota">
-          El retraso es el que lleva el tren ahora mismo según Renfe: si aún no ha llegado a tu estación, puede
-          recuperar o perder algo de tiempo por el camino.
+          La hora tachada es la prevista y debajo del retraso, la hora a la que sale de verdad. El retraso es el que
+          lleva el tren ahora mismo según Renfe: si aún no ha llegado a tu estación, puede recuperar o perder algo de
+          tiempo por el camino.
         </p>
       </section>
 
