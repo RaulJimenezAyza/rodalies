@@ -6,7 +6,7 @@ const ENLACE = 'https://ko-fi.com/rauljimenezz';
 // Formulario de Ko-fi para incrustar: se paga sin salir de la web (PayPal abre su propia ventanita).
 const INCRUSTADO = `${ENLACE}/?hidefeed=true&widget=true&embed=true&preview=true`;
 const CLAVE = 'cafe-fuera';
-const VUELVE_EN = { lanzado: 5 * 60 * 1000, cerrado: 30 * 24 * 3600 * 1000 }; // móvil (lanzado) / ordenador (✕)
+const VUELVE_EN = { lanzado: 5 * 60 * 1000, cerrado: 24 * 3600 * 1000 }; // móvil (lanzado) / ordenador (✕)
 const APARECE_TRAS = 5000; // ms: que no compita con la carga de la página
 const TAZA = `<svg class="cafe-taza" viewBox="0 0 24 24" aria-hidden="true">
   <path class="cafe-vapor" d="M7 2.5c-.6.8-.6 1.7 0 2.5M11 2.5c-.6.8-.6 1.7 0 2.5M15 2.5c-.6.8-.6 1.7 0 2.5"/>
