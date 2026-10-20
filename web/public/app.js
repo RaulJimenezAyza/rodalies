@@ -9,6 +9,7 @@ const $ = (id) => document.getElementById(id);
 const estado = {
   paradas: {}, lineas: {}, trazados: null, horario: null, dia: null, destinos: new Map(),
   vivo: new Map(), posiciones: [], ts: 0, estacion: leerEstacion(), filtro: new Set(), mapa: null,
+  previo: { estacion: null, filas: new Map() }, // lo que mostraba el panel, para girar solo lo que cambia
 };
 globalThis.__rodalies = estado; // para depurar desde la consola (y para las pruebas con Playwright)
 
@@ -27,12 +28,17 @@ iniciar();
 
 async function iniciar() {
   prepararTema();
+  prepararReloj();
   $('buscador-icono').innerHTML = icono('buscar');
   [estado.paradas, estado.lineas, estado.trazados] = await Promise.all([
     pedir('datos/paradas.json'), pedir('datos/lineas.json'), pedir('datos/trazados.json'),
   ]);
   prepararBuscador();
   prepararFiltro();
+  $('red-barras').addEventListener('click', (e) => {
+    const raya = e.target.closest('[data-clave]');
+    if (raya && estado.mapa?.enfocarTren(raya.dataset.clave)) $('mapa').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
   $('peores').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-clave]');
     if (b && estado.mapa?.enfocarTren(b.dataset.clave)) {
@@ -84,9 +90,8 @@ async function cargarVivo() {
     estado.ts = datos.ts;
     estado.vivo = new Map(datos.trenes.map((t) => [`${t[0]}|${t[1]}`, t]));
     estado.posiciones = datos.posiciones;
-    $('en-directo').classList.remove('caido');
   } catch {
-    $('en-directo').classList.add('caido');
+    // Se queda con lo último que tenía; el reloj avisa si los datos se hacen viejos.
   }
   estado.intentado = true;
 }
@@ -113,15 +118,44 @@ function pintarAhora() {
     : parte < 0.15
       ? `Ahora mismo van tarde <em>${r.conRetraso} de ${r.total}</em> trenes`
       : `Ahora mismo, <em>${numero(parte * 100)} %</em> de los trenes van tarde`;
+  pintarRed();
   $('ahora-texto').innerHTML = r.peor && r.peor[2] >= UMBRAL
     ? `El que más, un ${chip(r.peor[1])} con <strong>${minutos(r.peor[2])} minutos</strong> camino de ${nombre(r.peor[3])}.`
     : 'Ningún tren lleva más de 5 minutos de retraso.';
-  const hace = Math.max(0, Math.round(Date.now() / 1000 - estado.ts));
-  $('cifras').innerHTML = `
-    <div><dt>Circulando</dt><dd>${r.total}</dd></div>
-    <div class="${r.conRetraso ? 'mal' : ''}"><dt>Con +5 min</dt><dd>${r.conRetraso}</dd></div>
-    <div class="${r.cancelados ? 'mal' : ''}"><dt>Cancelados</dt><dd>${r.cancelados}</dd></div>
-    <p class="cifras-nota">Datos de Renfe de hace ${hace < 90 ? `${hace} s` : `${minutos(hace)} min`}</p>`;
+}
+
+// ---------- Reloj de estación ----------
+function prepararReloj() {
+  const formato = new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const tic = () => {
+    $('reloj').textContent = formato.format(new Date());
+    if (!estado.ts) return;
+    const hace = Math.max(0, Math.round(Date.now() / 1000 - estado.ts));
+    const viejo = hace > 180;
+    $('frescura').textContent = viejo ? 'Sin datos nuevos de Renfe' : `Datos de hace ${hace < 90 ? `${hace} s` : `${minutos(hace)} min`}`;
+    $('frescura').classList.toggle('viejo', viejo);
+  };
+  tic();
+  setInterval(tic, 1000);
+}
+
+// ---------- La red ahora: una raya por tren ----------
+function pintarRed() {
+  const trenes = [...estado.vivo.values()].filter((t) => t[4] || t[2] !== null);
+  const tipo = (t) => (t[4] ? 'tc' : t[2] >= 600 ? 't2' : t[2] >= 180 ? 't1' : 't0');
+  const orden = { t0: 0, t1: 1, t2: 2, tc: 3 };
+  trenes.sort((a, b) => orden[tipo(a)] - orden[tipo(b)] || (a[2] ?? 0) - (b[2] ?? 0));
+  const cuenta = { t0: 0, t1: 0, t2: 0, tc: 0 };
+  for (const t of trenes) cuenta[tipo(t)]++;
+  $('red-total').textContent = `${trenes.length} trenes`;
+  $('red-barras').setAttribute('aria-label', `${cuenta.t0} a su hora, ${cuenta.t1} con 3 a 9 minutos, ${cuenta.t2} con 10 o más, ${cuenta.tc} cancelados`);
+  $('red-barras').innerHTML = trenes.map((t) => {
+    const destino = estado.destinos.get(`${t[0]}|${t[1]}`);
+    const texto = `${t[1]} ${destino ? `a ${nombre(destino)}` : t[0]}: ${t[4] ? 'cancelado' : t[2] >= 60 ? `+${minutos(t[2])} min` : 'a su hora'}`;
+    return `<span class="${tipo(t)}" data-clave="${t[0]}|${t[1]}" title="${texto}"></span>`;
+  }).join('');
+  const clave = (c, color) => `<span><i style="background:var(${color})"></i><strong>${cuenta[c]}</strong> ${{ t0: 'a su hora', t1: 'con 3–9 min', t2: 'con 10 o más', tc: 'cancelados' }[c]}</span>`;
+  $('red-leyenda').innerHTML = clave('t0', '--neutro') + clave('t1', '--tarde') + clave('t2', '--muy-tarde') + (cuenta.tc ? clave('tc', '--tinta') : '');
 }
 
 // Los cinco que más retraso llevan ahora; al tocarlos, el mapa vuela hasta ellos.
@@ -136,8 +170,8 @@ function pintarPeores() {
         const clave = `${tren}|${linea}`;
         const destino = estado.destinos.get(clave);
         return `<li><button type="button" data-clave="${clave}" ${conPosicion.has(clave) ? '' : 'disabled title="Sin posición GPS ahora mismo"'}>
-          ${chip(linea)}<span class="peor-destino">${destino ? `a ${nombre(destino)}` : `Tren ${tren}`}<small>${parada ? `cerca de ${nombre(parada)}` : ''}</small></span>
-          <span class="peor-retraso${retraso >= 600 ? ' mucho' : ''}">+${minutos(retraso)}′</span></button></li>`;
+          <span class="peor-retraso${retraso >= 600 ? ' mucho' : ''}">+${minutos(retraso)}′</span>${chip(linea)}
+          <span class="peor-destino">${destino ? `a ${nombre(destino)}` : `Tren ${tren}`}<small>${parada ? `cerca de ${nombre(parada)}` : ''}</small></span></button></li>`;
       }).join('')
     : '<li class="peores-vacio">Ningún tren lleva más de 5 minutos de retraso.</li>';
 }
@@ -267,7 +301,10 @@ function pintarTablero() {
     tablero.innerHTML = '<p class="tablero-vacio">No salen trenes de esta estación en las próximas dos horas.</p>';
     return;
   }
-  tablero.innerHTML = salidas.map((s) => {
+  // Solo giran las filas que ya estaban y han cambiado (no al cargar ni al cambiar de estación).
+  const mismaEstacion = estado.previo.estacion === estado.estacion;
+  const filas = new Map();
+  tablero.innerHTML = '<div class="tablero-cab" aria-hidden="true"><span>Hora</span><span>Línea</span><span>Destino</span><span>Estado</span></div>' + salidas.map((s) => {
     const enMin = s.estimada - ahora;
     const cuando = enMin <= 0 ? 'saliendo' : enMin < 60 ? `en ${enMin} min` : '';
     const textoEstado = {
@@ -277,7 +314,11 @@ function pintarTablero() {
       'sin-salir': `<span class="estado-sin">Aún no ha salido</span>${cuando ? `<small>${cuando}</small>` : ''}`,
       'sin-datos': '<span class="estado-sin">Sin datos</span>',
     }[s.estado];
-    const clases = ['salida', s.estado === 'cancelado' ? 'cancelado' : '', s.estado === 'retraso' ? 'tarde' : ''].filter(Boolean).join(' ');
+    const clave = `${s.tren}|${s.linea}`;
+    const firma = `${s.estado}|${s.retraso}`;
+    filas.set(clave, firma);
+    const cambia = mismaEstacion && estado.previo.filas.has(clave) && estado.previo.filas.get(clave) !== firma;
+    const clases = ['salida', s.estado === 'cancelado' ? 'cancelado' : '', s.estado === 'retraso' ? 'tarde' : '', cambia ? 'cambia' : ''].filter(Boolean).join(' ');
     return `<div class="${clases}" style="--color:#${colorDe(s.linea)}">
       <span class="salida-hora">${s.hora}</span>
       ${chip(s.linea)}
@@ -285,6 +326,7 @@ function pintarTablero() {
       <div class="salida-estado">${textoEstado}</div>
     </div>`;
   }).join('');
+  estado.previo = { estacion: estado.estacion, filas };
 }
 
 // ---------- Líneas ----------

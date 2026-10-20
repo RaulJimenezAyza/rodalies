@@ -80,7 +80,7 @@ export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstac
     // Trenes: halo (late si va muy tarde), punto del color de su línea con anillo según el retraso y "+11′".
     mapa.addLayer({ id: 'trenes-halo', type: 'circle', source: 'trenes', filter: ['all', filtroLineas(), ['>=', ['get', 'retraso'], TARDE]],
       paint: { 'circle-radius': 14, 'circle-blur': 0.4, 'circle-opacity': 0.3,
-        'circle-color': ['case', ['>=', ['get', 'retraso'], MUY_TARDE], '#e5342a', '#f2a33a'] } });
+        'circle-color': ['case', ['>=', ['get', 'retraso'], MUY_TARDE], '#e5342a', '#f2a33a'] } }); // = --muy-tarde / --tarde
     mapa.addLayer({ id: 'trenes', type: 'circle', source: 'trenes', filter: filtroLineas(),
       paint: {
         'circle-radius': ancho(4.5, 9),

@@ -30,7 +30,8 @@
         Rodalies al minuto
       </a>
       <div class="cabecera-der">
-        <span class="en-directo" id="en-directo"><span class="punto-vivo"></span>En directo</span>
+        <span class="frescura" id="frescura"></span>
+        <time class="reloj" id="reloj" aria-label="Hora"></time>
         <button type="button" class="boton-tema" id="boton-tema"></button>
       </div>
     </header>
@@ -39,22 +40,28 @@
       <div class="panel-ahora">
         <h1 class="titular" id="titular">Cargando los trenes…</h1>
         <p class="ahora-texto" id="ahora-texto"></p>
-        <dl class="cifras" id="cifras"></dl>
+        <div class="red">
+          <h2 class="bloque-titulo">La red ahora <span id="red-total"></span></h2>
+          <div class="red-barras" id="red-barras" role="img"></div>
+          <p class="red-leyenda" id="red-leyenda"></p>
+        </div>
         <div class="peores">
-          <h2 class="peores-titulo">Los que van más tarde</h2>
+          <h2 class="bloque-titulo">Los que van más tarde</h2>
           <ol class="peores-lista" id="peores"></ol>
         </div>
       </div>
       <div class="mapa-marco">
         <div class="mapa" id="mapa" role="application" aria-label="Mapa de Rodalies con los trenes en directo"></div>
-        <div class="leyenda-mapa" aria-hidden="true">
-          <span><i class="anillo bien"></i>A su hora</span>
-          <span><i class="anillo tarde"></i>+3 min</span>
-          <span><i class="anillo muy-tarde"></i>+10 min</span>
-          <span class="leyenda-ayuda">Toca un tren o una estación</span>
-        </div>
       </div>
-      <div class="filtro-lineas" id="filtro-lineas" role="group" aria-label="Ver solo algunas líneas"></div>
+      <div class="bajo-mapa">
+        <p class="leyenda-mapa">
+          <span><i class="anillo"></i>A su hora</span>
+          <span><i class="anillo tarde"></i>3 min o más</span>
+          <span><i class="anillo muy-tarde"></i>10 min o más</span>
+          <span class="leyenda-ayuda">Toca un tren o una estación del mapa.</span>
+        </p>
+        <div class="filtro-lineas" id="filtro-lineas" role="group" aria-label="Ver solo algunas líneas"></div>
+      </div>
     </section>
 
     <main>
