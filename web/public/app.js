@@ -13,6 +13,7 @@ const parametros = new URLSearchParams(location.search);
 const estado = {
   paradas: {}, lineas: {}, trazados: null, horario: null, dia: null, destinos: new Map(),
   vivo: new Map(), posiciones: [], ts: 0, estacion: parametros.get('estacion') || leer('estacion') || '71801',
+  propia: Boolean(parametros.get('estacion') || leer('estacion')), // si la ha elegido la persona o es la de ejemplo
   filtro: new Set(), mapa: null,
   previo: { estacion: null, filas: new Map() }, // lo que mostraba el panel, para girar solo lo que cambia
   puntualidad: new Map(), desde: null, // por línea, de /api/lineas (para la ficha de cada línea)
@@ -65,12 +66,20 @@ async function iniciar() {
   prepararBuscador();
   prepararFiltro();
   prepararRed();
+  // El enlace de saltar lleva también el foco (no solo la vista) al buscador.
+  document.querySelector('.saltar').addEventListener('click', (e) => {
+    e.preventDefault();
+    $('salidas').scrollIntoView({ block: 'start' });
+    $('estacion').focus({ preventScroll: true });
+  });
   $('peores').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-clave]');
     if (b && estado.mapa?.enfocarTren(b.dataset.clave)) verMapa();
   });
   $('mi-estacion').addEventListener('click', (e) => {
-    if (e.target.closest('[data-ir-salidas]')) $('salidas').scrollIntoView({ behavior: quieto() ? 'auto' : 'smooth', block: 'start' });
+    if (!e.target.closest('[data-ir-salidas]')) return;
+    $('salidas').scrollIntoView({ behavior: quieto() ? 'auto' : 'smooth', block: 'start' });
+    if (!estado.propia) $('estacion').focus({ preventScroll: true });
   });
   addEventListener('online', () => { pintarAviso(); refrescar(); });
   addEventListener('offline', pintarAviso);
@@ -185,8 +194,8 @@ function pintarMiEstacion() {
     return `<li>${chip(s.linea)}<span class="mi-hora">${aHora(s.estimada)}</span><span class="mi-destino">${corto(s.destino)}</span><span class="${clase}">${texto}</span></li>`;
   }).join('');
   $('mi-estacion').innerHTML = `
-    <div class="mi-cab"><span>Próximos desde <strong>${corto(estado.estacion)}</strong></span>
-      <button type="button" class="enlace" data-ir-salidas>Ver todas</button></div>
+    <div class="mi-cab"><span>${estado.propia ? 'Próximos desde' : 'Por ejemplo, desde'} <strong>${corto(estado.estacion)}</strong></span>
+      <button type="button" class="enlace" data-ir-salidas>${estado.propia ? 'Ver todas' : 'Elige tu estación'}</button></div>
     ${filas ? `<ul>${filas}</ul>` : '<p class="mi-vacio">No salen trenes en las próximas dos horas.</p>'}`;
 }
 
@@ -234,7 +243,7 @@ function pintarRed() {
   $('red-barras').innerHTML = rayas.map((t, i) => `<span class="${tipoDe(t)}" data-i="${i}"></span>`).join('');
   const clave = (c, color, texto) => `<span><i style="background:var(${color})"></i><strong>${cuenta[c]}</strong> ${texto}</span>`;
   $('red-leyenda').innerHTML = clave('t0', '--neutro', 'a su hora o casi') + clave('t1', '--tarde', `${TARDE}–${MUY_TARDE - 1} min`) +
-    clave('t2', '--muy-tarde', `${MUY_TARDE} o más`) + (cuenta.tc ? clave('tc', '--tinta', 'cancelados') : '');
+    clave('t2', '--muy-tarde', `${MUY_TARDE} o más`) + (cuenta.tc ? clave('tc', '--tinta', cuenta.tc === 1 ? 'cancelado' : 'cancelados') : '');
 }
 
 // Tocar o arrastrar el dedo por la raya dice qué tren es; soltar lo enseña en el mapa. Con teclado, flechas + Intro.
@@ -248,7 +257,7 @@ function prepararRed() {
     barra.querySelectorAll('.activa').forEach((x) => x.classList.remove('activa'));
     barra.children[i]?.classList.add('activa');
     const estadoTren = t[4] ? 'cancelado' : t[2] >= 60 ? `+${minutos(t[2])} min` : 'a su hora';
-    $('red-lectura').innerHTML = `${chip(t[1])} ${destinoDe(t[0], t[1])} · <strong>${estadoTren}</strong>`;
+    $('red-lectura').innerHTML = `${chip(t[1])} <span>${destinoDe(t[0], t[1])}</span><strong>${estadoTren}</strong>`;
   };
   const indice = (x) => {
     const r = barra.getBoundingClientRect();
@@ -274,15 +283,18 @@ function prepararRed() {
 
 // Los cinco que más retraso llevan ahora (de las líneas elegidas, si hay); al tocarlos, el mapa vuela a ellos.
 function pintarPeores() {
-  const conPosicion = new Set(estado.posiciones.map(([tren, linea]) => `${tren}|${linea}`));
+  const gps = new Map(estado.posiciones.map(([tren, linea, , , , parada]) => [`${tren}|${linea}`, parada]));
+  const conPosicion = new Set(gps.keys());
   const peores = [...estado.vivo.values()]
     .filter((t) => !t[4] && t[2] !== null && t[2] >= UMBRAL && (!estado.filtro.size || estado.filtro.has(t[1])))
     .sort((a, b) => b[2] - a[2])
     .slice(0, 5);
-  $('peores-titulo').textContent = estado.filtro.size ? `Los que van más tarde en ${[...estado.filtro].join(', ')}` : 'Los que van más tarde';
+  // Con líneas elegidas, sus fichas ya listan sus trenes por retraso: no se repite.
+  document.querySelector('.peores').hidden = estado.filtro.size > 0;
   $('peores').innerHTML = peores.length
-    ? peores.map(([tren, linea, retraso, parada]) => {
+    ? peores.map(([tren, linea, retraso, paradaRt]) => {
         const clave = `${tren}|${linea}`;
+        const parada = gps.get(clave) || paradaRt;
         const etiqueta = `${linea} ${destinoDe(tren, linea)}, ${minutos(retraso)} minutos de retraso${parada ? `, cerca de ${corto(parada)}` : ''}`;
         return `<li><button type="button" data-clave="${clave}" aria-label="${etiqueta}" ${conPosicion.has(clave) ? '' : 'disabled title="Sin posición GPS ahora mismo"'}>
           <span class="peor-retraso${retraso >= MUY_TARDE * 60 ? ' mucho' : ''}">+${minutos(retraso)}′</span>${chip(linea)}
@@ -396,6 +408,7 @@ function pintarCuentasFiltro() {
   $('filtro-lineas').querySelectorAll('[data-linea]').forEach((b) => {
     const n = cuenta.get(b.dataset.linea) ?? 0;
     b.innerHTML = `${b.dataset.linea}<small aria-hidden="true">${n}</small>`;
+    b.dataset.n = n;
     b.setAttribute('aria-label', `${b.dataset.linea}, ${n} ${n === 1 ? 'tren' : 'trenes'} ahora`);
     b.title = `${estado.lineas[b.dataset.linea]?.nombre ?? b.dataset.linea}: ${n} ${n === 1 ? 'tren' : 'trenes'} ahora`;
   });
@@ -446,6 +459,7 @@ function pintarFichas() {
 // ---------- Tu estación ----------
 function elegirEstacion(id, { volar = true, irAlPanel = false } = {}) {
   estado.estacion = id;
+  estado.propia = true;
   guardar('estacion', id);
   guardar('recientes', JSON.stringify([id, ...recientes().filter((x) => x !== id)].slice(0, 4)));
   $('estacion').value = nombre(id);
@@ -593,7 +607,7 @@ function pintarTablero() {
     return `<div class="${clases}" style="--color:#${colorDe(s.linea)}">
       <span class="salida-hora">${conRetraso ? aHora(s.estimada) : s.hora}${conRetraso ? `<s aria-label="prevista ${s.hora}">${s.hora}</s>` : ''}</span>
       ${chip(s.linea)}
-      <div class="salida-destino"><strong>${nombre(s.destino)}</strong><span>Tren ${s.tren}</span></div>
+      <div class="salida-destino"><strong>${corto(s.destino)}</strong><span>Tren ${s.tren}</span></div>
       <div class="salida-estado">${textoEstado}</div>
     </div>`;
   }).join('');

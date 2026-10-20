@@ -144,6 +144,7 @@ body.datos-viejos .tablero, body.datos-viejos .mi-estacion ul { opacity: 0.6; }
 .titular em.bien { color: var(--bien); }
 .ahora-texto { margin-top: 16px; font-size: 1.0625rem; line-height: 1.5; color: var(--tinta-2); text-wrap: pretty; }
 .ahora-texto strong { color: var(--tinta); }
+.ahora-texto .linea-chip { height: auto; line-height: 1.35; padding: 0 0.35em; vertical-align: 0.05em; font-size: 0.875rem; }
 
 /* Tu estación, arriba */
 .mi-estacion { margin-top: 22px; }
@@ -152,7 +153,7 @@ body.datos-viejos .tablero, body.datos-viejos .mi-estacion ul { opacity: 0.6; }
 .mi-cab strong { color: var(--tinta); }
 .mi-estacion ul { list-style: none; margin: 4px 0 0; padding: 0; border-top: 1px solid var(--linea); }
 .mi-estacion li {
-  display: grid; grid-template-columns: auto 3.4em minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  display: grid; grid-template-columns: 3.2em 3.4em minmax(0, 1fr) auto; align-items: center; gap: 10px;
   min-height: 44px; border-bottom: 1px solid var(--linea); font-size: 0.9375rem;
 }
 .mi-estacion .linea-chip { font-size: 0.8125rem; min-width: 2.8em; }
@@ -182,6 +183,7 @@ body.datos-viejos .tablero, body.datos-viejos .mi-estacion ul { opacity: 0.6; }
 
 /* Los que van más tarde: filas como un marcador */
 .peores { grid-area: peores; margin-top: 14px; }
+.peores[hidden] { display: none; }
 .peores-lista { list-style: none; margin: 8px 0 0; padding: 0; border-top: 1px solid var(--linea); }
 .peores-lista button {
   width: 100%; min-height: 52px; display: grid; grid-template-columns: 3.2em auto minmax(0, 1fr); align-items: center; gap: 12px;
@@ -213,7 +215,7 @@ body.datos-viejos .tablero, body.datos-viejos .mi-estacion ul { opacity: 0.6; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme='light']) { --icono-mapa: invert(1); } }
 .ver-todo svg { width: 20px; height: 20px; fill: none; stroke: var(--tinta); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .maplibregl-ctrl-attrib { background: color-mix(in srgb, var(--fondo) 85%, transparent) !important; color: var(--tinta-3); border-radius: var(--r-s) !important; }
-.maplibregl-ctrl-attrib a { color: var(--tinta-2) !important; }
+.maplibregl-ctrl-attrib-inner, .maplibregl-ctrl-attrib a { color: var(--tinta-2) !important; }
 .maplibregl-ctrl-attrib-button { filter: var(--icono-mapa, none); }
 
 .bajo-mapa { grid-area: filtro; align-self: start; display: grid; gap: 10px; min-width: 0; }
@@ -234,6 +236,7 @@ body.datos-viejos .tablero, body.datos-viejos .mi-estacion ul { opacity: 0.6; }
 .filtro-lineas button:hover { transform: translateY(-1px); }
 .filtro-lineas button[aria-pressed='true'] { background: var(--color, var(--tinta)); color: var(--texto, var(--fondo)); }
 .filtro-lineas .filtro-todas { --color: var(--tinta); --texto: var(--fondo); font-weight: 700; }
+.filtro-lineas button[data-n='0']:not([aria-pressed='true']) { opacity: 0.45; }
 .filtro-lineas button small { font-weight: 600; opacity: 0.75; margin-left: 5px; font-variant-numeric: tabular-nums; }
 
 /* Ficha de las líneas elegidas, a todo el ancho bajo la portada */
@@ -245,7 +248,7 @@ body.datos-viejos .tablero, body.datos-viejos .mi-estacion ul { opacity: 0.6; }
 .ficha-cab h3 { font-size: 1.125rem; font-weight: 800; letter-spacing: -0.01em; }
 .ficha-datos { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 8px; font-size: 0.9375rem; color: var(--tinta-2); }
 .ficha-datos strong { color: var(--tinta); }
-.ficha-trenes { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; }
+.ficha-trenes { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; }
 .ficha-trenes button {
   width: 100%; min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: var(--r-s);
   border: 1px solid var(--linea); background: transparent; cursor: pointer; text-align: left; font-size: 0.875rem;
@@ -297,7 +300,7 @@ body.datos-viejos .tablero, body.datos-viejos .mi-estacion ul { opacity: 0.6; }
 .sin-resultados { padding: 12px; color: var(--tinta-3); }
 .atajos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .atajos button {
-  min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--linea); background: transparent;
+  min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--linea); background: transparent;
   color: var(--tinta-2); font-size: 0.875rem; cursor: pointer; transition: border-color 0.15s, color 0.15s;
 }
 .atajos button:hover { border-color: var(--tinta-3); color: var(--tinta); }
@@ -358,10 +361,10 @@ body.datos-viejos .tablero, body.datos-viejos .mi-estacion ul { opacity: 0.6; }
 .tabla-lineas { margin-top: 8px; }
 .ranking { list-style: none; margin: 24px 0 0; padding: 0; display: grid; gap: 8px; }
 .puesto {
-  display: grid; grid-template-columns: auto 4.6em minmax(0, 1fr) auto; align-items: center; gap: 6px 16px;
+  display: grid; grid-template-columns: 4em 4.6em minmax(0, 1fr) 19ch; align-items: center; gap: 6px 16px;
   padding: 14px 18px; border-radius: var(--r-m); background: var(--fondo-2);
 }
-.puesto .linea-chip { font-size: 1.0625rem; height: 2em; min-width: 3em; }
+.puesto .linea-chip { font-size: 1.0625rem; height: 2em; min-width: 3em; justify-self: start; }
 .puesto-pct { font-weight: 800; font-stretch: 80%; font-size: 2.4rem; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .puesto-pct small { font-size: 0.5em; font-weight: 700; margin-left: 1px; }
 .puesto-pct.mal { color: var(--mal); }
@@ -394,6 +397,12 @@ body.datos-viejos .tablero, body.datos-viejos .mi-estacion ul { opacity: 0.6; }
   .aviso-datos { margin: 12px 16px 0; }
   .frescura { display: none; }
   .titular { font-size: 2rem; }
+  .portada { grid-template-areas: 'titular' 'texto' 'mapa' 'filtro' 'mi' 'red' 'fichas' 'peores'; }
+  .panel-ahora { display: contents; }
+  .titular { grid-area: titular; padding-top: 8px; }
+  .ahora-texto { grid-area: texto; margin-top: 0; }
+  .mi-estacion { grid-area: mi; margin-top: 12px; }
+  .red { grid-area: red; margin-top: 12px; }
   .mapa { min-height: 340px; }
   .filtro { flex-direction: column; gap: 6px; }
   .filtro-etiqueta { padding-top: 0; }

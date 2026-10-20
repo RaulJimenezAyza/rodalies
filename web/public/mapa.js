@@ -40,7 +40,7 @@ export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstac
     },
   });
   if (tactil) mapa.doubleClickZoom.disable(); // dos toques rápidos sobre trenes no deben hacer zoom
-  mapa.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+  if (!tactil) mapa.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right'); // en el móvil bastan los dedos
   mapa.addControl(new ControlVerTodo(() => verTodo()), 'top-right');
 
   const estaciones = {
@@ -70,8 +70,12 @@ export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstac
         mapa.setLayoutProperty(id, 'visibility', 'none');
       } else if (capa.type === 'line' && /road|highway|street|tunnel|bridge|transportation|railway|path/.test(id)) {
         mapa.setPaintProperty(id, 'line-opacity', tema === 'oscuro' ? 0.3 : 0.45);
-      } else if (capa.type === 'fill' && /^water/.test(id) && tema === 'oscuro') {
-        mapa.setPaintProperty(id, 'fill-color', '#070a0c'); // el mar, más oscuro que la tierra
+      } else if (capa.type === 'fill' && /^water/.test(id)) {
+        mapa.setPaintProperty(id, 'fill-color', tema === 'oscuro' ? '#070a0c' : '#d9e3e8'); // el mar, que no pese
+      } else if (capa.type === 'symbol' && /^place/.test(id)) {
+        // Rótulos de pueblos y ciudades: con halo del color del fondo para que las líneas no los tachen.
+        mapa.setPaintProperty(id, 'text-halo-color', papel());
+        mapa.setPaintProperty(id, 'text-halo-width', 2);
       }
     }
   }
@@ -83,10 +87,12 @@ export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstac
     mapa.addSource('trenes', { type: 'geojson', data: geojson() });
 
     const ancho = (a, b) => ['interpolate', ['linear'], ['zoom'], 7, a, 13, b];
+    // Las vías van debajo de los rótulos del mapa base, para no tachar los nombres de los pueblos.
+    const primerRotulo = mapa.getStyle().layers.find((c) => c.type === 'symbol')?.id;
     mapa.addLayer({ id: 'trazados-borde', type: 'line', source: 'trazados', filter: filtroLineas(),
-      layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': papel(), 'line-width': ancho(3.5, 9) } });
+      layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': papel(), 'line-width': ancho(3.5, 9) } }, primerRotulo);
     mapa.addLayer({ id: 'trazados', type: 'line', source: 'trazados', filter: filtroLineas(),
-      layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': ancho(1.8, 5) } });
+      layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': ancho(1.8, 5) } }, primerRotulo);
 
     mapa.addLayer({ id: 'estaciones', type: 'circle', source: 'estaciones', minzoom: 9.5,
       paint: { 'circle-radius': ancho(1.5, 5), 'circle-color': papel(), 'circle-stroke-color': tinta(), 'circle-stroke-width': 1.2 } });
@@ -126,10 +132,37 @@ export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstac
   mapa.on('style.load', ponerCapas);
   mapa.on('error', (e) => console.warn('Mapa:', e.error?.message ?? e)); // p. ej. una capa mal definida
   // Créditos plegados en una «i»: MapLibre los abre al cargar en pantallas pequeñas y tapan el mapa.
-  mapa.once('idle', () => document.querySelector(`#${contenedor} .maplibregl-ctrl-attrib`)?.classList.remove('maplibregl-compact-show'));
+  // Se pliegan cada vez que MapLibre los reabre (al cargar, al cambiar de tema), salvo si los ha abierto la persona.
+  // Es un <details> que MapLibre abre por su cuenta (al cargar, al llegar los créditos de cada capa).
+  // Solo se deja abierto si lo acaba de pedir la persona con la «i».
+  let pedidoPorPersona = false;
+  {
+    const c = mapa.getContainer().querySelector('.maplibregl-ctrl-attrib'); // ya existe: lo crea el constructor
+    const cerrar = () => {
+      if (c?.open && !pedidoPorPersona) { c.removeAttribute('open'); c.classList.remove('maplibregl-compact-show'); }
+    };
+    c?.querySelector('summary')?.addEventListener('click', () => {
+      pedidoPorPersona = !c.open; // va a abrirse si estaba cerrado
+    }, true);
+    if (c) new MutationObserver(cerrar).observe(c, { attributes: true, attributeFilter: ['open'] });
+    cerrar();
+  }
 
   // ---- Interacción: un solo manejador, con margen alrededor del toque y prioridad tren > estación > línea ----
   const emergente = new maplibregl.Popup({ closeButton: false, offset: 14, maxWidth: '280px', className: 'emergente' });
+  // La burbuja nunca más ancha que el mapa (menos el hueco de los botones), para que no se corte en el móvil.
+  const abrir = (coord, html) => emergente.setMaxWidth(`${Math.min(280, mapa.getContainer().clientWidth - 72)}px`)
+    .setLngLat(coord).setHTML(html).addTo(mapa);
+  // Estación más cercana al toque, calculada sobre todas (también cuando, alejado, no se dibujan).
+  const estacionCerca = (p) => {
+    let mejor = null;
+    for (const [id, [, lat, lon]] of Object.entries(paradas)) {
+      const q = mapa.project([lon, lat]);
+      const d = Math.hypot(q.x - p.x, q.y - p.y);
+      if (d <= TOLERANCIA && (!mejor || d < mejor.d)) mejor = { id, d };
+    }
+    return mejor;
+  };
   const caja = (p) => [[p.x - TOLERANCIA, p.y - TOLERANCIA], [p.x + TOLERANCIA, p.y + TOLERANCIA]];
   const masCercano = (lista, p) => lista
     .map((f) => ({ f, d: Math.hypot(...((q) => [q.x - p.x, q.y - p.y])(mapa.project(f.geometry.type === 'Point' ? f.geometry.coordinates : [0, 0]))) }))
@@ -139,18 +172,20 @@ export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstac
   mapa.on('click', (e) => {
     const zona = caja(e.point);
     const trenes = mapa.queryRenderedFeatures(zona, { layers: capasDe(['trenes']) });
-    if (trenes.length) {
-      const f = masCercano(trenes, e.point);
-      emergente.setLngLat(f.geometry.coordinates).setHTML(contenidoTren(f.properties)).addTo(mapa);
-      return;
+    const tren = trenes.length ? masCercano(trenes, e.point) : null;
+    const estacion = estacionCerca(e.point);
+    // Gana el tren, salvo que el toque esté claramente más cerca de una estación.
+    const dTren = tren ? Math.hypot(...((q) => [q.x - e.point.x, q.y - e.point.y])(mapa.project(tren.geometry.coordinates))) : Infinity;
+    if (tren && (!estacion || dTren <= estacion.d + 6)) return abrir(tren.geometry.coordinates, contenidoTren(tren.properties));
+    if (estacion) {
+      emergente.remove();
+      return alElegirEstacion(estacion.id);
     }
-    const paradasCerca = mapa.queryRenderedFeatures(zona, { layers: capasDe(['estaciones', 'estacion-elegida']) });
-    if (paradasCerca.length) return alElegirEstacion(masCercano(paradasCerca, e.point).properties.id);
     const lineas = mapa.queryRenderedFeatures([[e.point.x - 6, e.point.y - 6], [e.point.x + 6, e.point.y + 6]], { layers: capasDe(['trazados']) });
     if (lineas.length) alElegirLinea?.(lineas[0].properties.linea);
   });
   mapa.on('mousemove', (e) => {
-    const algo = mapa.queryRenderedFeatures(caja(e.point), { layers: capasDe(['trenes', 'estaciones']) }).length
+    const algo = mapa.queryRenderedFeatures(caja(e.point), { layers: capasDe(['trenes']) }).length || estacionCerca(e.point)
       || mapa.queryRenderedFeatures(e.point, { layers: capasDe(['trazados']) }).length;
     mapa.getCanvas().style.cursor = algo ? 'pointer' : '';
   });
@@ -215,8 +250,9 @@ export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstac
     enfocarTren(clave) {
       const t = mostrados.get(clave);
       if (!t) return false;
-      mapa.flyTo({ center: t.coord, zoom: Math.max(mapa.getZoom(), 11), speed: 1.4, essential: false });
-      emergente.setLngLat(t.coord).setHTML(contenidoTren(t.props)).addTo(mapa);
+      // El tren algo por debajo del centro, para que su burbuja quepa encima.
+      mapa.flyTo({ center: t.coord, zoom: Math.max(mapa.getZoom(), 11), offset: [0, 60], speed: 1.4, essential: false });
+      abrir(t.coord, contenidoTren(t.props));
       return true;
     },
 
@@ -231,6 +267,7 @@ export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstac
 
     filtrarLineas(lineas) {
       filtro = lineas?.size ? lineas : null;
+      if (filtro) emergente.remove(); // la burbuja abierta puede ser de un tren que ya no se ve
       if (filtro) encuadrarLineas();
       if (!mapa.getLayer('trenes')) return;
       for (const id of ['trazados', 'trazados-borde', 'trenes', 'trenes-brillo']) mapa.setFilter(id, filtroLineas());
