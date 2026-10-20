@@ -1,12 +1,12 @@
 // Botón flotante de "Invítame a un café".
 // En el ordenador, una pastilla abajo a la derecha con su ✕. En el móvil, una taza redonda que se puede
-// arrastrar: si se lanza fuera de la pantalla, se va (y no vuelve en 30 días); si no, vuelve a su sitio con un rebote.
+// arrastrar: si se lanza fuera de la pantalla, se va (y vuelve a los 5 minutos); si no, vuelve a su sitio con un rebote.
 
 const ENLACE = 'https://ko-fi.com/rauljimenezz';
 // Formulario de Ko-fi para incrustar: se paga sin salir de la web (PayPal abre su propia ventanita).
 const INCRUSTADO = `${ENLACE}/?hidefeed=true&widget=true&embed=true&preview=true`;
 const CLAVE = 'cafe-fuera';
-const VUELVE_EN = 30 * 24 * 3600 * 1000;
+const VUELVE_EN = { lanzado: 5 * 60 * 1000, cerrado: 30 * 24 * 3600 * 1000 }; // móvil (lanzado) / ordenador (✕)
 const APARECE_TRAS = 5000; // ms: que no compita con la carga de la página
 const TAZA = `<svg class="cafe-taza" viewBox="0 0 24 24" aria-hidden="true">
   <path class="cafe-vapor" d="M7 2.5c-.6.8-.6 1.7 0 2.5M11 2.5c-.6.8-.6 1.7 0 2.5M15 2.5c-.6.8-.6 1.7 0 2.5"/>
@@ -15,11 +15,15 @@ const TAZA = `<svg class="cafe-taza" viewBox="0 0 24 24" aria-hidden="true">
 const quieto = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const movil = () => matchMedia('(max-width: 700px), (pointer: coarse)').matches;
 
+// En localStorage se guarda hasta cuándo no debe salir.
 function fuera() {
-  try { return Date.now() - Number(localStorage.getItem(CLAVE) || 0) < VUELVE_EN; } catch { return false; }
+  try { return Date.now() < Number(localStorage.getItem(CLAVE) || 0); } catch { return false; }
 }
-function despedir() {
-  try { localStorage.setItem(CLAVE, String(Date.now())); } catch {}
+function despedir(durante) {
+  try { localStorage.setItem(CLAVE, String(Date.now() + durante)); } catch {}
+}
+function pistaVista() {
+  try { return localStorage.getItem('cafe-pista') === '1'; } catch { return false; }
 }
 
 // Ventana con el formulario de Ko-fi. El iframe solo se carga al abrirla: hasta entonces, nada de Ko-fi en la página.
@@ -61,14 +65,16 @@ export function prepararCafe() {
   document.body.append(caja);
   setTimeout(() => caja.classList.add('visible'), APARECE_TRAS);
 
-  const irse = (dx = 0, dy = 0) => {
-    despedir();
+  const irse = (dx, dy, durante) => {
+    despedir(durante);
+    // Si sigue aquí cuando toca, vuelve a aparecer sin recargar.
+    if (durante < 3600 * 1000) setTimeout(prepararCafe, durante + 500);
     caja.style.setProperty('--x', `${dx}px`);
     caja.style.setProperty('--y', `${dy}px`);
     caja.classList.add('saliendo');
     setTimeout(() => caja.remove(), quieto() ? 0 : 450);
   };
-  caja.querySelector('.cafe-cerrar').addEventListener('click', () => irse(0, 120));
+  caja.querySelector('.cafe-cerrar').addEventListener('click', () => irse(0, 120, VUELVE_EN.cerrado));
 
   // ---- Móvil: arrastrar y lanzar ----
   const boton = caja.querySelector('.cafe-boton');
@@ -105,7 +111,7 @@ export function prepararCafe() {
       // Sale volando en la dirección del gesto.
       const vx = ultimo.vx ?? dx, vy = ultimo.vy ?? dy;
       const n = Math.hypot(vx, vy) || 1;
-      irse(dx + (vx / n) * innerWidth, dy + (vy / n) * innerWidth);
+      irse(dx + (vx / n) * innerWidth, dy + (vy / n) * innerWidth, VUELVE_EN.lanzado);
     } else {
       // Vuelve a su sitio con un rebote.
       caja.style.setProperty('--x', '0px');
@@ -128,7 +134,8 @@ export function prepararCafe() {
   });
 
   // En el móvil, la primera vez, una pista de que se puede quitar.
-  if (movil()) {
+  if (movil() && !pistaVista()) {
+    try { localStorage.setItem('cafe-pista', '1'); } catch {}
     setTimeout(() => caja.classList.add('con-pista'), APARECE_TRAS + 900);
     setTimeout(() => caja.classList.remove('con-pista'), APARECE_TRAS + 5500);
   }

@@ -40,12 +40,16 @@ export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstac
       'NavigationControl.ZoomIn': 'Acercar',
       'NavigationControl.ZoomOut': 'Alejar',
       'AttributionControl.ToggleAttribution': 'Créditos del mapa',
+      'FullscreenControl.Enter': 'Mapa a pantalla completa',
+      'FullscreenControl.Exit': 'Salir de pantalla completa',
     },
   });
   mapa.touchZoomRotate.disableRotation();
   if (tactil) mapa.doubleClickZoom.disable(); // dos toques rápidos sobre trenes no deben hacer zoom
   if (!tactil) mapa.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right'); // en el móvil bastan los dedos
   mapa.addControl(new ControlVerTodo(() => verTodo()), 'top-right');
+  // Pantalla completa (en el iPhone, que no la permite, MapLibre ocupa toda la ventana).
+  mapa.addControl(new maplibregl.FullscreenControl({ container: mapa.getContainer() }), 'top-right');
 
   const estaciones = {
     type: 'FeatureCollection',
@@ -296,7 +300,7 @@ class ControlVerTodo {
     this.caja = document.createElement('div');
     this.caja.className = 'maplibregl-ctrl maplibregl-ctrl-group';
     this.caja.innerHTML = `<button type="button" class="ver-todo" aria-label="Ver toda la red" title="Ver toda la red">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>`;
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg></button>`;
     this.caja.querySelector('button').addEventListener('click', this.alPulsar);
     return this.caja;
   }
