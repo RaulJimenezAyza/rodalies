@@ -59,11 +59,17 @@ h1, h2, h3, p { margin: 0; }
 a { color: inherit; text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
 :focus-visible { outline: 2px solid var(--tinta); outline-offset: 3px; border-radius: 4px; }
 button, input { font: inherit; color: inherit; }
-main { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+main { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
 .icono { width: 20px; height: 20px; flex: none; }
 
 /* ---------- Cabecera ---------- */
-.cabecera { max-width: 1040px; margin: 0 auto; padding: 20px 20px 0; display: flex; align-items: center; justify-content: space-between; }
+.cabecera { max-width: 1240px; margin: 0 auto; padding: 18px 20px 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cabecera-der { display: flex; align-items: center; gap: 14px; }
+.en-directo { display: inline-flex; align-items: center; gap: 8px; font-size: 0.875rem; font-weight: 600; color: var(--tinta-2); }
+.punto-vivo { width: 9px; height: 9px; border-radius: 50%; background: #26a741; box-shadow: 0 0 0 0 rgba(38, 167, 65, 0.6); animation: latido 2s infinite; }
+.en-directo.caido .punto-vivo { background: var(--mal); animation: none; }
+@keyframes latido { 70% { box-shadow: 0 0 0 9px rgba(38, 167, 65, 0); } 100% { box-shadow: 0 0 0 0 rgba(38, 167, 65, 0); } }
+@media (prefers-reduced-motion: reduce) { .punto-vivo { animation: none; } }
 .marca { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; white-space: nowrap; font-weight: 800; font-stretch: 110%; font-size: 1.125rem; letter-spacing: -0.01em; }
 .marca-logo { width: 24px; height: 24px; }
 .boton-tema {
@@ -73,10 +79,80 @@ main { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
 .boton-tema:hover { box-shadow: inset 0 0 0 1.5px var(--tinta); }
 
 /* ---------- Ahora ---------- */
-.ahora { padding: 48px 0 40px; }
-.titular { font-weight: 800; font-size: clamp(2.1rem, 5vw, 3.6rem); line-height: 1.03; letter-spacing: -0.035em; max-width: 18ch; text-wrap: balance; }
+/* ---------- Portada: el estado de ahora + el mapa en directo ---------- */
+.portada {
+  max-width: 1240px; margin: 0 auto; padding: 24px 20px 8px;
+  display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); grid-template-areas: 'panel mapa' 'panel filtro'; gap: 14px 28px;
+}
+.panel-ahora { grid-area: panel; padding-top: 12px; }
+.titular { font-weight: 800; font-size: clamp(2rem, 3.4vw, 2.9rem); line-height: 1.03; letter-spacing: -0.035em; text-wrap: balance; }
 .titular em { font-style: normal; color: var(--mal); }
-.ahora-texto { margin-top: 18px; font-size: 1.1875rem; line-height: 1.5; color: var(--tinta-2); max-width: 60ch; text-wrap: pretty; }
+.titular em.bien { color: var(--bien); }
+.ahora-texto { margin-top: 16px; font-size: 1.0625rem; line-height: 1.5; color: var(--tinta-2); text-wrap: pretty; }
+.cifras { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin: 26px 0 0; border-top: 3px solid var(--tinta); }
+.cifras > div { padding: 12px 0 0; }
+.cifras > div + div { padding-left: 14px; border-left: 1px solid var(--linea); }
+.cifras dt { font-size: 0.8125rem; color: var(--tinta-3); font-weight: 600; }
+.cifras dd { margin: 2px 0 0; font-weight: 800; font-stretch: 85%; font-size: 2.6rem; line-height: 1; letter-spacing: -0.02em; }
+.cifras .mal dd { color: var(--mal); }
+.cifras-nota { grid-column: 1 / -1; margin-top: 12px; font-size: 0.8125rem; color: var(--tinta-3); }
+
+.peores { margin-top: 28px; }
+.peores-titulo { font-size: 1rem; font-weight: 700; }
+.peores-lista { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.peores-lista button {
+  width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  padding: 8px 10px; border: 1px solid var(--linea); border-radius: 12px; background: var(--fondo); cursor: pointer; text-align: left;
+  transition: border-color 0.15s, transform 0.15s var(--suave), box-shadow 0.15s;
+}
+.peores-lista button:hover:not(:disabled) { border-color: var(--tinta); transform: translateX(3px); box-shadow: 0 6px 16px -10px rgba(0, 0, 0, 0.35); }
+.peores-lista button:disabled { cursor: default; opacity: 0.7; }
+.peores-lista .linea-chip { font-size: 0.8125rem; min-width: 2.8em; }
+.peor-destino { min-width: 0; font-weight: 700; font-size: 0.9375rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.peor-destino small { display: block; font-weight: 500; font-size: 0.75rem; color: var(--tinta-3); overflow: hidden; text-overflow: ellipsis; }
+.peor-retraso { font-weight: 800; font-stretch: 85%; font-size: 1.375rem; color: var(--medio); font-variant-numeric: tabular-nums; }
+.peor-retraso.mucho { color: var(--mal); }
+.peores-vacio { color: var(--tinta-3); font-size: 0.9375rem; }
+
+.mapa-marco { grid-area: mapa; position: relative; border-radius: 20px; overflow: hidden; border: 1px solid var(--linea); background: var(--fondo-2); }
+.mapa { height: clamp(460px, 68vh, 720px); }
+.mapa-error { padding: 40px; color: var(--tinta-3); }
+.leyenda-mapa {
+  position: absolute; left: 12px; bottom: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+  padding: 8px 12px; border-radius: 12px; background: var(--fondo); box-shadow: 0 4px 16px -6px rgba(0, 0, 0, 0.3);
+  font-size: 0.8125rem; font-weight: 600; color: var(--tinta-2); pointer-events: none;
+}
+.leyenda-mapa span { display: inline-flex; align-items: center; gap: 6px; }
+.leyenda-ayuda { color: var(--tinta-3); font-weight: 500; }
+.anillo { width: 12px; height: 12px; border-radius: 50%; background: #7dbcec; border: 2.5px solid var(--fondo); box-shadow: 0 0 0 1px var(--linea); }
+.anillo.tarde { border-color: #f2a33a; box-shadow: none; }
+.anillo.muy-tarde { border-color: #e5342a; box-shadow: 0 0 0 4px rgba(229, 52, 42, 0.25); }
+
+.filtro-lineas { grid-area: filtro; align-self: start; display: flex; align-items: center; gap: 6px; overflow-x: auto; padding: 2px 2px 6px; scrollbar-width: thin; }
+.filtro-lineas button {
+  flex: none; min-height: 36px; min-width: 44px; padding: 0 12px; border-radius: 9px; cursor: pointer;
+  border: 2px solid var(--color, var(--linea)); background: transparent; color: var(--tinta);
+  font-weight: 800; font-size: 0.875rem; transition: background-color 0.15s, color 0.15s, transform 0.15s var(--suave);
+}
+.filtro-lineas button:hover { transform: translateY(-1px); }
+.filtro-lineas button[aria-pressed='true'] { background: var(--color, var(--tinta)); color: var(--texto, var(--fondo)); }
+.filtro-lineas .filtro-todas { --color: var(--tinta); --texto: var(--fondo); font-weight: 700; }
+
+/* Ventana de un tren en el mapa */
+.emergente .maplibregl-popup-content {
+  background: var(--fondo); color: var(--tinta); border-radius: 14px; padding: 12px 14px;
+  box-shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.4); font: inherit;
+}
+.emergente.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color: var(--fondo); }
+.emergente.maplibregl-popup-anchor-top .maplibregl-popup-tip { border-bottom-color: var(--fondo); }
+.emergente.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: var(--fondo); }
+.emergente.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: var(--fondo); }
+.tren-cab { display: flex; align-items: center; gap: 10px; }
+.tren-cab strong { font-size: 1rem; line-height: 1.2; }
+.tren-emergente p { margin-top: 6px; font-size: 0.9375rem; font-weight: 700; }
+.tren-emergente .tren-donde { font-weight: 500; color: var(--tinta-2); }
+.tren-emergente .tren-numero { font-weight: 500; font-size: 0.8125rem; color: var(--tinta-3); margin-top: 2px; }
+.maplibregl-ctrl-group { border-radius: 10px !important; }
 .ahora-texto strong { color: var(--tinta); }
 
 /* ---------- Línea (chip con el color oficial) ---------- */
@@ -86,7 +162,7 @@ main { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
 }
 
 /* ---------- Tu estación: el panel de salidas ---------- */
-.estacion { padding: 40px 0 48px; border-top: 1px solid var(--linea); }
+.estacion { margin-top: 32px; padding: 40px 0 48px; border-top: 1px solid var(--linea); }
 .estacion-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
 .estacion h2 { font-weight: 800; font-size: clamp(1.6rem, 3vw, 2.2rem); letter-spacing: -0.03em; }
 .buscador { position: relative; flex: 1 1 280px; max-width: 460px; }
@@ -108,8 +184,10 @@ main { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
 .tablero { margin-top: 24px; border-top: 3px solid var(--tinta); }
 .salida {
   display: grid; grid-template-columns: 5.2em auto minmax(0, 1fr) auto; align-items: center; gap: 4px 18px;
-  padding: 14px 4px; border-bottom: 1px solid var(--linea);
+  padding: 14px 4px 14px 18px; border-bottom: 1px solid var(--linea); box-shadow: inset 4px 0 0 var(--color, transparent);
+  transition: background-color 0.15s;
 }
+.salida:hover { background: var(--fondo-2); }
 .salida-hora { font-weight: 800; font-stretch: 85%; font-size: 1.875rem; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; }
 .salida.tarde .salida-hora { text-decoration: line-through; text-decoration-thickness: 2px; color: var(--tinta-3); font-size: 1.375rem; }
 .salida-destino { min-width: 0; }
@@ -142,11 +220,18 @@ main { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
 .dato small { display: block; font-size: 0.75rem; color: var(--tinta-3); }
 
 /* ---------- Pie ---------- */
-.pie { max-width: 1040px; margin: 0 auto; padding: 28px 20px 56px; border-top: 1px solid var(--linea); }
+.pie { max-width: 1240px; margin: 0 auto; padding: 28px 20px 56px; border-top: 1px solid var(--linea); }
 .pie p { max-width: 70ch; color: var(--tinta-2); font-size: 0.9375rem; line-height: 1.6; }
 
+@media (max-width: 900px) {
+  .portada { grid-template-columns: 1fr; grid-template-areas: 'panel' 'mapa' 'filtro'; }
+  .mapa { height: 62vh; min-height: 380px; }
+}
 @media (max-width: 700px) {
-  main, .cabecera, .pie { padding-left: 16px; padding-right: 16px; }
+  main, .cabecera, .pie, .portada { padding-left: 16px; padding-right: 16px; }
+  .en-directo { font-size: 0.8125rem; }
+  .cifras dd { font-size: 2.1rem; }
+  .leyenda-ayuda { display: none; }
   .salida { grid-template-columns: 4.4em minmax(0, 1fr) auto; grid-template-areas: 'hora destino estado' 'hora linea estado'; gap: 4px 12px; }
   .salida-hora { grid-area: hora; font-size: 1.5rem; }
   .salida .linea-chip { grid-area: linea; justify-self: start; font-size: 0.8125rem; }

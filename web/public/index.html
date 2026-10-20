@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Rodalies al minuto · Qué trenes van tarde, ahora</title>
-    <meta name="description" content="Los próximos trenes de Rodalies en tu estación con su retraso real, y la puntualidad de cada línea." />
+    <title>Rodalies al minuto · Todos los trenes en directo</title>
+    <meta name="description" content="Mapa en directo de todos los trenes de Rodalies con su retraso real, las próximas salidas de tu estación y la puntualidad de cada línea." />
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)" />
     <script>
@@ -13,7 +13,10 @@
     <link rel="canonical" href="https://rodalies.reloda.es/" />
     <link rel="icon" href="icono.svg" type="image/svg+xml" />
     <link rel="preload" href="fuentes/archivo.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
     <link rel="stylesheet" href="estilos.css" />
+    <script defer src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
     <script type="module" src="app.js"></script>
   </head>
   <body>
@@ -26,16 +29,36 @@
         </svg>
         Rodalies al minuto
       </a>
-      <button type="button" class="boton-tema" id="boton-tema"></button>
+      <div class="cabecera-der">
+        <span class="en-directo" id="en-directo"><span class="punto-vivo"></span>En directo</span>
+        <button type="button" class="boton-tema" id="boton-tema"></button>
+      </div>
     </header>
 
-    <main>
-      <section class="ahora" aria-labelledby="titular">
+    <section class="portada" aria-labelledby="titular">
+      <div class="panel-ahora">
         <h1 class="titular" id="titular">Cargando los trenes…</h1>
         <p class="ahora-texto" id="ahora-texto"></p>
-      </section>
+        <dl class="cifras" id="cifras"></dl>
+        <div class="peores">
+          <h2 class="peores-titulo">Los que van más tarde</h2>
+          <ol class="peores-lista" id="peores"></ol>
+        </div>
+      </div>
+      <div class="mapa-marco">
+        <div class="mapa" id="mapa" role="application" aria-label="Mapa de Rodalies con los trenes en directo"></div>
+        <div class="leyenda-mapa" aria-hidden="true">
+          <span><i class="anillo bien"></i>A su hora</span>
+          <span><i class="anillo tarde"></i>+3 min</span>
+          <span><i class="anillo muy-tarde"></i>+10 min</span>
+          <span class="leyenda-ayuda">Toca un tren o una estación</span>
+        </div>
+      </div>
+      <div class="filtro-lineas" id="filtro-lineas" role="group" aria-label="Ver solo algunas líneas"></div>
+    </section>
 
-      <section class="estacion" aria-labelledby="titulo-estacion">
+    <main>
+      <section class="estacion" id="salidas" aria-labelledby="titulo-estacion">
         <div class="estacion-cab">
           <h2 id="titulo-estacion">Salidas de</h2>
           <div class="buscador">
@@ -62,10 +85,12 @@
 
     <footer class="pie">
       <p>
-        Datos en tiempo real y horarios de <a href="https://data.renfe.com/" rel="noopener">Renfe</a>. Esta web guarda
-        cada minuto el estado de todos los trenes de Rodalies para poder contar su puntualidad, algo que Renfe no publica.
-        No tiene cuentas ni cookies: solo recuerda tu estación en este navegador. Es un proyecto personal y de código
-        abierto, en <a href="https://github.com/RaulJimenezAyza/rodalies" rel="noopener">GitHub</a>.
+        Datos en tiempo real y horarios de <a href="https://data.renfe.com/" rel="noopener">Renfe</a>; mapa de
+        <a href="https://openfreemap.org/" rel="noopener">OpenFreeMap</a> con datos de
+        <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap</a>. Esta web guarda cada minuto
+        el estado de todos los trenes de Rodalies para poder contar su puntualidad, algo que Renfe no publica. No tiene
+        cuentas ni cookies: solo recuerda tu estación en este navegador. Es un proyecto personal y de código abierto, en
+        <a href="https://github.com/RaulJimenezAyza/rodalies" rel="noopener">GitHub</a>.
       </p>
     </footer>
   </body>

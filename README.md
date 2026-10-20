@@ -37,8 +37,8 @@ Worker rodalies-colector  ─────────────> capturas  1 f
                                                      ▲
 Web rodalies.reloda.es (Cloudflare Pages)            │
   public/            estática + horarios en datos/   │
-  functions/api/     /api/ahora (última captura) ────┤
-                     /api/lineas (puntualidad) ──────┘
+  functions/api/     /api/vivo (última captura + GPS de Renfe) ──┤
+                     /api/lineas (puntualidad) ──────────────────┘
 ```
 
 - **Colector** (`colector/`): cada captura guarda `[tren, línea, retraso_s, próxima_parada, cancelado]`
@@ -50,8 +50,12 @@ Web rodalies.reloda.es (Cloudflare Pages)            │
   (`web/public/datos/horarios/AAAA-MM-DD.json`, ~350 KB, ~60 KB comprimido). No gastan peticiones ni D1.
   El GTFS trae unas 4 semanas: **hay que regenerarlos y volver a publicar la web cada 2–3 semanas.**
   El viaje de hoy en el GTFS se llama igual que en el tiempo real (`5191M28289R2S`).
-- **Peticiones de Workers**: el colector gasta 1.440 al día de las 100.000 gratuitas; la web, ~2 por
-  visita y 1 por minuto mientras está abierta (las APIs se cachean en Cloudflare).
+- **Mapa**: MapLibre con el mapa base gratuito de OpenFreeMap (sin clave). Los trazados salen del GTFS
+  (`datos/trazados.json`, ~57 KB) y las posiciones, del feed `vehicle_positions.json` de Renfe a través de
+  `/api/vivo`. Los trenes se deslizan entre posiciones y los que llevan +10 min laten.
+- **Peticiones de Workers**: el colector gasta 1.440 al día de las 100.000 gratuitas. La web, ~2 al abrirla
+  y 2 por minuto mientras está abierta **y a la vista** (con la pestaña en segundo plano no pide nada).
+  La caché de Cloudflare ahorra consultas a Renfe y a D1, pero cada visita sigue contando como petición.
 - **D1** en lugar de R2, porque R2 pide tarjeta para activarse.
 
 Comprobar el colector: `https://rodalies-colector.dimelo-game.workers.dev/estado`.

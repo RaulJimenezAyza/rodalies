@@ -8,6 +8,7 @@
 //   lineas.json              { "R1": { "color": "7DBCEC", "texto": "FFFFFF" }, … }
 //   horarios/AAAA-MM-DD.json [["28289", "R2S", [["71708", "07:42"], …]], …]   (un archivo por día)
 //   horarios/indice.json     ["2026-10-20", …]
+//   trazados.json            GeoJSON con el trazado de cada línea (simplificado), para el mapa
 //
 // Son archivos estáticos: la web los lee sin gastar peticiones de Workers ni escrituras de D1.
 // El GTFS de Renfe trae unos 30 días: hay que volver a generarlos y publicar al menos cada 3 semanas.
@@ -33,6 +34,12 @@ console.log(`GTFS: ${(zip.length / 1e6).toFixed(1)} MB`);
 // ---- Leer los archivos que interesan, en streaming, línea a línea ----
 const lineasDe = {}; // nombre de archivo → callback(fila)
 const filas = { 'calendar.txt': [], 'routes.txt': [], 'stops.txt': [], 'trips.txt': [] };
+const formas = new Map(); // shape_id → [[secuencia, lon, lat]] (solo un sentido: los "_INV" son el mismo trazado al revés)
+lineasDe['shapes.txt'] = (f) => {
+  if (!f.shape_id.startsWith(`${RED}_`) || f.shape_id.endsWith('_INV')) return;
+  if (!formas.has(f.shape_id)) formas.set(f.shape_id, []);
+  formas.get(f.shape_id).push([Number(f.shape_pt_sequence), Number(f.shape_pt_lon), Number(f.shape_pt_lat)]);
+};
 for (const nombre of Object.keys(filas)) lineasDe[nombre] = (f) => filas[nombre].push(f);
 const tiempos = new Map(); // trip_id → [[secuencia, parada, salida]]
 lineasDe['stop_times.txt'] = (f) => {
@@ -128,4 +135,30 @@ for (const [dia, servicio] of [...servicioDelDia].sort()) {
 }
 await writeFile(new URL('horarios/indice.json', SALIDA), JSON.stringify(dias));
 
-console.log(`${Object.keys(paradas).length} estaciones, ${Object.keys(lineas).length} líneas, ${dias.length} días (${dias[0]} → ${dias.at(-1)})`);
+// ---- Trazados para el mapa: simplificados (~20 m) y con 5 decimales (~1 m) ----
+const trazados = { type: 'FeatureCollection', features: [] };
+for (const [id, puntos] of formas) {
+  const linea = id.slice(RED.length + 1);
+  const coordenadas = simplificar(puntos.sort((a, b) => a[0] - b[0]).map(([, lon, lat]) => [lon, lat]), 0.0002)
+    .map(([lon, lat]) => [Number(lon.toFixed(5)), Number(lat.toFixed(5))]);
+  trazados.features.push({ type: 'Feature', properties: { linea, color: `#${lineas[linea]?.color ?? '777777'}` }, geometry: { type: 'LineString', coordinates: coordenadas } });
+}
+await writeFile(new URL('trazados.json', SALIDA), JSON.stringify(trazados));
+
+/** Douglas-Peucker: quita puntos que se desvían menos de `tolerancia` (en grados) de la recta. */
+function simplificar(puntos, tolerancia) {
+  if (puntos.length < 3) return puntos;
+  const [a, b] = [puntos[0], puntos.at(-1)];
+  let maxima = 0, indice = 0;
+  for (let i = 1; i < puntos.length - 1; i++) {
+    const [x, y] = puntos[i];
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const largo = Math.hypot(dx, dy) || 1e-12;
+    const distancia = Math.abs(dy * x - dx * y + b[0] * a[1] - b[1] * a[0]) / largo;
+    if (distancia > maxima) { maxima = distancia; indice = i; }
+  }
+  if (maxima <= tolerancia) return [a, b];
+  return [...simplificar(puntos.slice(0, indice + 1), tolerancia).slice(0, -1), ...simplificar(puntos.slice(indice), tolerancia)];
+}
+
+console.log(`${trazados.features.length} trazados (${(JSON.stringify(trazados).length / 1024).toFixed(0)} KB), ${Object.keys(paradas).length} estaciones, ${Object.keys(lineas).length} líneas, ${dias.length} días (${dias[0]} → ${dias.at(-1)})`);
