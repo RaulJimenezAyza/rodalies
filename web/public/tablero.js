@@ -1,7 +1,9 @@
 // Lógica del panel de salidas (funciones puras, con tests).
 
 const TRES_HORAS = 3 * 3600_000;
-const RETRASO = 3; // minutos a partir de los que se marca un tren como retrasado
+/** Minutos a partir de los que un tren va «tarde» (en toda la web) y «muy tarde». */
+export const TARDE = 5;
+export const MUY_TARDE = 10;
 
 /** Día de servicio (AAAA-MM-DD) y minutos desde su medianoche; antes de las 3:00 aún es el día anterior. */
 export function momentoDeServicio(fecha = new Date()) {
@@ -25,7 +27,8 @@ export const aHora = (minutos) => `${String(Math.floor(minutos / 60) % 24).padSt
  * @param {string} parada id de la estación
  * @param {number} ahora minutos de servicio (momentoDeServicio().minutos)
  * @param {Map<string, [string, string, number|null, string|null, 0|1]>} vivo última captura, por "tren|línea"
- * @returns {Array<{ tren, linea, hora, minutos, destino, estado: 'cancelado'|'retraso'|'hora'|'sin-salir'|'sin-datos', retraso, estimada }>}
+ * @returns {Array<{ tren, linea, hora, minutos, destino, estado: 'cancelado'|'retraso'|'leve'|'hora'|'sin-salir'|'sin-datos', retraso, estimada }>}
+ *   leve: 1–4 min de retraso; retraso: TARDE minutos o más.
  */
 export function proximasSalidas(horario, parada, ahora, vivo, { antes = 2, despues = 120, maximo = 12 } = {}) {
   const salidas = [];
@@ -38,7 +41,7 @@ export function proximasSalidas(horario, parada, ahora, vivo, { antes = 2, despu
     if (real?.[4]) estado = 'cancelado';
     else if (real && real[2] !== null) {
       retraso = Math.max(0, Math.round(real[2] / 60));
-      estado = retraso >= RETRASO ? 'retraso' : 'hora'; // 1 o 2 minutos se dan por buenos
+      estado = retraso >= TARDE ? 'retraso' : retraso >= 1 ? 'leve' : 'hora';
     } else estado = aMinutos(paradas[0][1]) > ahora ? 'sin-salir' : 'sin-datos';
     const estimada = minutos + retraso;
     if (estimada < ahora - antes || minutos > ahora + despues) continue;
@@ -55,8 +58,42 @@ export function resumenAhora(trenes, umbral = 300) {
   return { total: enMarcha.length, conRetraso: conRetraso.length, cancelados: trenes.filter((t) => t[4]).length, peor };
 }
 
-/** Texto blanco o casi negro sobre el color de una línea, según su luminancia. */
+/** Texto blanco o casi negro sobre el color de una línea: el que más contraste da (WCAG). */
 export function textoSobre(hex) {
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.4 ? '#111111' : '#ffffff';
+  const luz = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const conBlanco = 1.05 / (luz + 0.05);
+  const conNegro = (luz + 0.05) / (0.0056 + 0.05); // #111111
+  return conNegro > conBlanco ? '#111111' : '#ffffff';
+}
+
+/** Para buscar sin tildes ni mayúsculas: "Mataró" → "mataro". */
+export const normalizar = (texto) => texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+/**
+ * Estaciones que encajan con lo escrito: todas las palabras tienen que aparecer (sin tildes ni mayúsculas)
+ * y van primero las que empiezan por lo escrito. @param {Record<string, [string]>} paradas
+ */
+export function buscarEstaciones(paradas, texto, maximo = 8) {
+  const palabras = normalizar(texto).split(/[\s,.-]+/).filter(Boolean);
+  if (!palabras.length) return [];
+  const encajan = [];
+  for (const [id, [nombre]] of Object.entries(paradas)) {
+    const n = normalizar(nombre);
+    if (!palabras.every((p) => n.includes(p))) continue;
+    const sinCiudad = n.replace(/^barcelona[- ]/, '');
+    const nota = sinCiudad.startsWith(palabras[0]) || n.startsWith(palabras[0]) ? 0 : n.split(/[\s-]+/).some((w) => w.startsWith(palabras[0])) ? 1 : 2;
+    encajan.push({ id, nombre, nota });
+  }
+  return encajan.sort((a, b) => a.nota - b.nota || a.nombre.localeCompare(b.nombre, 'es')).slice(0, maximo);
+}
+
+/** Estación más cercana a unas coordenadas (distancia aproximada en km, buena a esta escala). */
+export function estacionMasCercana(paradas, lat, lon) {
+  let mejor = null;
+  for (const [id, [nombre, la, lo]] of Object.entries(paradas)) {
+    const d = Math.hypot((la - lat) * 111, (lo - lon) * 111 * Math.cos((lat * Math.PI) / 180));
+    if (!mejor || d < mejor.km) mejor = { id, nombre, km: d };
+  }
+  return mejor;
 }

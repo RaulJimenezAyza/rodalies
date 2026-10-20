@@ -110,7 +110,7 @@ for (const r of filas['routes.txt']) {
   if (viajes > (mejorRuta[linea] ?? -1)) {
     mejorRuta[linea] = viajes;
     const [origen, destino] = r.route_long_name.split(/\s+-/).map((x) => x.trim());
-    lineas[linea].nombre = destino ? `${origen} – ${destino}` : origen;
+    lineas[linea].nombre = (destino ? `${origen} – ${destino}` : origen).replace('Sant Vicenc', 'Sant Vicenç'); // Renfe lo escribe sin ç
   }
 }
 

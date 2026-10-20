@@ -28,12 +28,13 @@
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="preload" href="fuentes/archivo.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
-    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
+    <link rel="stylesheet" href="vendor/maplibre-gl.css" />
     <link rel="stylesheet" href="estilos.css" />
-    <script defer src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+    <script defer src="vendor/maplibre-gl.js"></script>
     <script type="module" src="app.js"></script>
   </head>
   <body>
+    <a class="saltar" href="#salidas">Ir a las salidas de tu estación</a>
     <div class="escenario">
     <header class="cabecera">
       <a class="marca" href="/">
@@ -50,20 +51,23 @@
         <button type="button" class="boton-tema" id="boton-tema"></button>
       </div>
     </header>
+    <p class="aviso-datos" id="aviso-datos" role="status" hidden></p>
 
     <section class="portada" aria-labelledby="titular">
       <div class="panel-ahora">
         <h1 class="titular" id="titular">Cargando los trenes…</h1>
         <p class="ahora-texto" id="ahora-texto"></p>
+        <div class="mi-estacion" id="mi-estacion" aria-live="polite"></div>
         <div class="red">
           <h2 class="bloque-titulo">La red ahora <span id="red-total"></span></h2>
-          <p class="bloque-ayuda">Cada raya es un tren circulando, de los que van a su hora (gris) a los que van muy tarde (rojo). Toca una para verlo en el mapa.</p>
-          <div class="red-barras" id="red-barras" role="img"></div>
+          <p class="bloque-ayuda">Cada raya es un tren circulando, de los que van a su hora (gris) a los que van muy tarde (rojo).</p>
+          <div class="red-barras" id="red-barras" role="group" tabindex="0"></div>
+          <p class="red-lectura" id="red-lectura" aria-live="polite">Toca o pasa por encima de la raya para ver cada tren.</p>
           <p class="red-leyenda" id="red-leyenda"></p>
         </div>
       </div>
       <div class="peores">
-        <h2 class="bloque-titulo">Los que van más tarde</h2>
+        <h2 class="bloque-titulo" id="peores-titulo">Los que van más tarde</h2>
         <ol class="peores-lista" id="peores"></ol>
       </div>
       <div class="mapa-marco">
@@ -72,16 +76,16 @@
       <div class="bajo-mapa">
         <p class="leyenda-mapa">
           <span class="leyenda-texto">Cada punto es un tren, del color de su línea. Su borde dice el retraso:</span>
-          <span><i class="anillo"></i>a su hora</span>
-          <span><i class="anillo tarde"></i>3 min o más</span>
+          <span><i class="anillo"></i>a su hora o casi</span>
+          <span><i class="anillo tarde"></i>5 min o más</span>
           <span><i class="anillo muy-tarde"></i>10 min o más</span>
         </p>
         <div class="filtro">
           <span class="filtro-etiqueta" id="filtro-etiqueta">Ver una línea</span>
           <div class="filtro-lineas" id="filtro-lineas" role="group" aria-labelledby="filtro-etiqueta"></div>
         </div>
-        <div class="fichas-linea" id="fichas-linea" aria-live="polite"></div>
       </div>
+      <div class="fichas-linea" id="fichas-linea" aria-live="polite"></div>
     </section>
     </div>
 
@@ -91,9 +95,10 @@
           <h2 id="titulo-estacion">Salidas de</h2>
           <div class="buscador">
             <span class="buscador-icono" id="buscador-icono"></span>
-            <input id="estacion" type="search" list="estaciones" autocomplete="off" spellcheck="false"
-              placeholder="Busca tu estación" aria-label="Tu estación" />
-            <datalist id="estaciones"></datalist>
+            <input id="estacion" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
+              aria-controls="estaciones-lista" autocomplete="off" spellcheck="false" enterkeyhint="search"
+              placeholder="Busca tu estación (p. ej. sants, mataro)" aria-label="Tu estación" />
+            <ul class="opciones-estacion" id="estaciones-lista" role="listbox" aria-label="Estaciones" hidden></ul>
           </div>
         </div>
         <div class="atajos" id="atajos" aria-label="Estaciones frecuentes"></div>
@@ -101,14 +106,14 @@
           <div class="tablero-barra">
             <span class="tablero-salidas">Salidas</span>
             <strong class="tablero-estacion" id="tablero-estacion"></strong>
-            <time class="tablero-reloj" id="tablero-reloj"></time>
           </div>
           <div id="tablero" aria-live="polite"></div>
         </div>
         <p class="tablero-nota">
-          La hora tachada es la prevista y debajo del retraso, la hora a la que sale de verdad. El retraso es el que
-          lleva el tren ahora mismo según Renfe: si aún no ha llegado a tu estación, puede recuperar o perder algo de
-          tiempo por el camino.
+          En grande, la hora a la que sale de verdad; si va con retraso, debajo y tachada, la prevista.
+          <strong>Aún no ha salido</strong>: el tren todavía no ha empezado su recorrido. <strong>Sin seguimiento</strong>:
+          Renfe no da su posición ahora mismo. El retraso es el que lleva el tren ahora: si aún no ha llegado a tu
+          estación, puede recuperar o perder algo de tiempo por el camino.
         </p>
       </section>
 
