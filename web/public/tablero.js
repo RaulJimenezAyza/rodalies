@@ -32,13 +32,14 @@ export const aHora = (minutos) => `${String(Math.floor(minutos / 60) % 24).padSt
  */
 export function proximasSalidas(horario, parada, ahora, vivo, { antes = 2, despues = 120, maximo = 12 } = {}) {
   const salidas = [];
-  for (const [tren, linea, paradas] of horario) {
+  for (const [tren, linea, paradas, bus] of horario) {
     const i = paradas.findIndex(([p]) => p === parada);
     if (i === -1 || i === paradas.length - 1) continue; // no pasa por aquí o termina aquí
     const minutos = aMinutos(paradas[i][1]);
     const real = vivo.get(`${tren}|${linea}`);
     let estado, retraso = 0;
-    if (real?.[4]) estado = 'cancelado';
+    if (bus) estado = 'bus'; // servicio por carretera: sin seguimiento en directo
+    else if (real?.[4]) estado = 'cancelado';
     else if (real && real[2] !== null) {
       retraso = Math.max(0, Math.round(real[2] / 60));
       estado = retraso >= TARDE ? 'retraso' : retraso >= 1 ? 'leve' : 'hora';

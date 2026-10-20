@@ -58,3 +58,10 @@ test('estación más cercana', () => {
   const paradas = { a: ['Sants', 41.379, 2.141], b: ['Mataró', 41.538, 2.445] };
   assert.equal(estacionMasCercana(paradas, 41.54, 2.44).id, 'b');
 });
+
+test('proximasSalidas: los viajes en autobús salen como «bus», aunque haya datos en directo', () => {
+  const horario = [['1', 'R3', [['A', '10:00'], ['B', '10:30']], 1]];
+  const [s] = proximasSalidas(horario, 'A', 9 * 60 + 50, new Map([['1|R3', ['1', 'R3', 600, null, false]]]));
+  assert.equal(s.estado, 'bus');
+  assert.equal(s.retraso, 0);
+});

@@ -189,7 +189,7 @@ function pintarMiEstacion() {
   const ahora = momentoDeServicio().minutos;
   const proximas = proximasSalidas(estado.horario, estado.estacion, ahora, estado.vivo, { antes: 0, maximo: 3 });
   const filas = proximas.map((s) => {
-    const texto = { cancelado: 'Cancelado', retraso: `+${s.retraso} min`, leve: `+${s.retraso} min`, hora: 'A su hora', 'sin-salir': 'Aún sin salir', 'sin-datos': 'Sin seguimiento' }[s.estado];
+    const texto = { bus: 'Autobús', cancelado: 'Cancelado', retraso: `+${s.retraso} min`, leve: `+${s.retraso} min`, hora: 'A su hora', 'sin-salir': 'Aún sin salir', 'sin-datos': 'Sin seguimiento' }[s.estado];
     const clase = { cancelado: 'estado-cancelado', retraso: s.retraso >= MUY_TARDE ? 'estado-cancelado' : 'estado-retraso', hora: 'estado-hora' }[s.estado] ?? 'estado-sin';
     return `<li>${chip(s.linea)}<span class="mi-hora">${aHora(s.estimada)}</span><span class="mi-destino">${corto(s.destino)}</span><span class="${clase}">${texto}</span></li>`;
   }).join('');
@@ -593,6 +593,7 @@ function pintarTablero() {
     const conRetraso = s.retraso > 0 && s.estado !== 'cancelado';
     const textoEstado = {
       cancelado: '<span class="estado-cancelado">Cancelado</span>',
+      bus: `<span class="estado-bus">Autobús</span><small>${cuando}</small>`,
       retraso: `<span class="estado-retraso${s.retraso >= MUY_TARDE ? ' mucho' : ''}">+${s.retraso} min</span><small>${cuando}</small>`,
       leve: `<span class="estado-leve">+${s.retraso} min</span><small>${cuando}</small>`,
       hora: `<span class="estado-hora">A su hora</span><small>${cuando}</small>`,
@@ -607,7 +608,7 @@ function pintarTablero() {
     return `<div class="${clases}" style="--color:#${colorDe(s.linea)}">
       <span class="salida-hora">${conRetraso ? aHora(s.estimada) : s.hora}${conRetraso ? `<s aria-label="prevista ${s.hora}">${s.hora}</s>` : ''}</span>
       ${chip(s.linea)}
-      <div class="salida-destino"><strong>${corto(s.destino)}</strong><span>Tren ${s.tren}</span></div>
+      <div class="salida-destino"><strong>${corto(s.destino)}</strong><span>${s.estado === 'bus' ? 'Servicio alternativo por carretera' : `Tren ${s.tren}`}</span></div>
       <div class="salida-estado">${textoEstado}</div>
     </div>`;
   }).join('');

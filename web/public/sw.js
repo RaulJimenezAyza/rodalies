@@ -1,7 +1,7 @@
 // Service worker: hace la web instalable y que abra sin conexión con lo último que se vio.
 // Todo va "primero la red" (siempre lo más nuevo); sin conexión, la copia guardada. Solo se guarda lo de
 // esta web: el mapa base (OpenFreeMap) lo gestiona el propio navegador.
-const VERSION = 'rodalies-v9';
+const VERSION = 'rodalies-v10';
 const BASE = ['/', '/estilos.css', '/app.js', '/tablero.js', '/mapa.js', '/iconos.js', '/fuentes/archivo.woff2',
   '/vendor/maplibre-gl.js', '/vendor/maplibre-gl.css',
   '/datos/paradas.json', '/datos/lineas.json', '/datos/trazados.json', '/icono.svg', '/manifest.webmanifest'];

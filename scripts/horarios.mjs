@@ -6,7 +6,7 @@
 // Escribe en web/public/datos/:
 //   paradas.json             { "71801": ["Barcelona-Sants", 41.37, 2.14], … }  (solo las de Rodalies)
 //   lineas.json              { "R1": { "color": "7DBCEC", "texto": "FFFFFF" }, … }
-//   horarios/AAAA-MM-DD.json [["28289", "R2S", [["71708", "07:42"], …]], …]   (un archivo por día)
+//   horarios/AAAA-MM-DD.json [["28289", "R2S", [["71708", "07:42"], …]], …]   (un archivo por día; un 1 al final = autobús)
 //   horarios/indice.json     ["2026-10-20", …]
 //   trazados.json            GeoJSON con el trazado de cada línea (simplificado), para el mapa
 //
@@ -102,12 +102,14 @@ const viajesPorRuta = new Map();
 for (const v of filas['trips.txt']) if (v.route_id.startsWith(`${RED}T`)) viajesPorRuta.set(v.route_id, (viajesPorRuta.get(v.route_id) ?? 0) + 1);
 const lineas = {};
 const mejorRuta = {};
+// route_type 3 = autobús: el servicio alternativo por carretera cuando hay obras. Renfe no da su posición.
+const rutasBus = new Set(filas['routes.txt'].filter((r) => r.route_type === '3').map((r) => r.route_id));
 for (const r of filas['routes.txt']) {
   if (!r.route_id.startsWith(`${RED}T`)) continue;
   const linea = r.route_short_name;
   lineas[linea] ??= { color: r.route_color, texto: r.route_text_color };
   const viajes = viajesPorRuta.get(r.route_id) ?? 0;
-  if (viajes > (mejorRuta[linea] ?? -1)) {
+  if (!rutasBus.has(r.route_id) && viajes > (mejorRuta[linea] ?? -1)) {
     mejorRuta[linea] = viajes;
     const [origen, destino] = r.route_long_name.split(/\s+-/).map((x) => x.trim());
     lineas[linea].nombre = (destino ? `${origen} – ${destino}` : origen).replace('Sant Vicenc', 'Sant Vicenç'); // Renfe lo escribe sin ç
@@ -125,7 +127,9 @@ for (const v of filas['trips.txt']) {
   paradas.sort((a, b) => a[0] - b[0]);
   for (const p of paradas) usadas.add(p[1]);
   if (!viajesPorServicio.has(v.service_id)) viajesPorServicio.set(v.service_id, []);
-  viajesPorServicio.get(v.service_id).push([encaje[1], encaje[2], paradas.map(([, parada, hora]) => [parada, hora])]);
+  const viaje = [encaje[1], encaje[2], paradas.map(([, parada, hora]) => [parada, hora])];
+  if (rutasBus.has(v.route_id)) viaje.push(1); // cuarto campo: es un autobús
+  viajesPorServicio.get(v.service_id).push(viaje);
 }
 
 const paradas = {};

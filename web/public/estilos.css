@@ -341,6 +341,7 @@ body.datos-viejos .tablero, body.datos-viejos .mi-estacion ul { opacity: 0.6; }
 .tablero .estado-retraso { color: var(--panel-tarde); }
 .tablero .estado-retraso.mucho, .tablero .estado-cancelado { color: var(--panel-mal); }
 .tablero .estado-sin { color: var(--panel-tenue); font-weight: 500; }
+.tablero .estado-bus { color: var(--ambar); }
 .salida.cancelado .salida-hora, .salida.cancelado .salida-destino strong { text-decoration: line-through; color: var(--panel-tenue); }
 .tablero .salida:first-of-type { min-height: 86px; }
 .tablero .salida:first-of-type .salida-hora { font-size: 2.6rem; }
