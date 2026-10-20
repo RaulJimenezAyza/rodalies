@@ -1,0 +1,15 @@
+{
+  "name": "rodalies",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "desplegar:colector": "wrangler deploy --config colector/wrangler.toml"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  },
+  "allowScripts": {
+    "workerd@1.20261019.1": true
+  }
+}

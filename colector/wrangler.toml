@@ -1,0 +1,13 @@
+# Colector: cada minuto guarda el estado de los trenes de Rodalies en D1 (ver src/index.js).
+#   npm run desplegar:colector
+name = "rodalies-colector"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[triggers]
+crons = ["* * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "rodalies"
+database_id = "4b437028-f6b0-476c-8524-c3b95ac048c8"
