@@ -48,7 +48,8 @@ Web rodalies.reloda.es (Cloudflare Pages)            │
   capturas nuevas cuesta ~60 lecturas y ~120 escrituras, y el resumen está siempre al día.
 - **Horarios** (`npm run horarios`): el GTFS de Renfe se convierte en archivos estáticos por día
   (`web/public/datos/horarios/AAAA-MM-DD.json`, ~350 KB, ~60 KB comprimido). No gastan peticiones ni D1.
-  El GTFS trae unas 4 semanas: **hay que regenerarlos y volver a publicar la web cada 2–3 semanas.**
+  El GTFS trae unas 4 semanas, así que **cada lunes una tarea de GitHub Actions** (`.github/workflows/horarios.yml`)
+  los regenera y vuelve a publicar la web (necesita los secretos `CLOUDFLARE_API_TOKEN` y `CLOUDFLARE_ACCOUNT_ID`).
   El viaje de hoy en el GTFS se llama igual que en el tiempo real (`5191M28289R2S`).
 - **Mapa**: MapLibre con el mapa base gratuito de OpenFreeMap (sin clave). Los trazados salen del GTFS
   (`datos/trazados.json`, ~57 KB) y las posiciones, del feed `vehicle_positions.json` de Renfe a través de
