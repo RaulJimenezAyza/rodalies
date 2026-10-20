@@ -27,7 +27,10 @@ export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstac
     ...VISTA,
     minZoom: 6.5,
     maxBounds: [[-0.6, 39.9], [4.2, 43.2]],
-    cooperativeGestures: true, // en el móvil se desplaza con dos dedos, para no atrapar el scroll de la página
+    // En el móvil se mueve con un dedo; en el ordenador, la rueda solo hace zoom con Ctrl (para no atrapar el scroll).
+    cooperativeGestures: !tactil,
+    touchPitch: false, // sin inclinar ni girar por accidente al pellizcar
+    dragRotate: false,
     attributionControl: { compact: true },
     locale: {
       'Map.Title': 'Mapa de Rodalies',
@@ -39,6 +42,7 @@ export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstac
       'AttributionControl.ToggleAttribution': 'Créditos del mapa',
     },
   });
+  mapa.touchZoomRotate.disableRotation();
   if (tactil) mapa.doubleClickZoom.disable(); // dos toques rápidos sobre trenes no deben hacer zoom
   if (!tactil) mapa.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right'); // en el móvil bastan los dedos
   mapa.addControl(new ControlVerTodo(() => verTodo()), 'top-right');
