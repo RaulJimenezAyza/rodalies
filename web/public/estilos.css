@@ -8,6 +8,9 @@
 
 /* ---------- Tokens ---------- */
 :root {
+  /* Mundo del andén: oscuro en los dos modos (panel de salidas y banda de arriba) */
+  --panel: #0f1214; --panel-2: #171b1e; --panel-linea: #262b2f; --panel-tinta: #f1f0ea; --panel-tenue: #9aa0a5;
+  --ambar: #ffc23d; --panel-bien: #6fd88f; --panel-tarde: #ffb547; --panel-mal: #ff6a55;
   color-scheme: light;
   --fondo: #ffffff;
   --fondo-2: #f3f4f3;
@@ -218,8 +221,6 @@ main { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
 .atajos button[aria-pressed='true'] { background: var(--tinta); border-color: var(--tinta); color: var(--fondo); }
 
 .tablero {
-  --panel: #0f1214; --panel-2: #171b1e; --panel-linea: #262b2f; --panel-tinta: #f1f0ea; --panel-tenue: #9aa0a5;
-  --ambar: #ffc23d; --panel-bien: #6fd88f; --panel-tarde: #ffb547; --panel-mal: #ff6a55;
   margin-top: 24px; background: var(--panel); color: var(--panel-tinta); border-radius: 14px; overflow: hidden;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 20px 40px -28px rgba(0, 0, 0, 0.55);
 }
@@ -254,7 +255,7 @@ main { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
 .lineas { padding: 40px 0 56px; border-top: 1px solid var(--linea); }
 .lineas h2 { font-weight: 800; font-size: clamp(1.6rem, 3vw, 2.2rem); letter-spacing: -0.03em; }
 .seccion-sub { margin-top: 6px; color: var(--tinta-3); max-width: 70ch; }
-.tabla-lineas { margin-top: 24px; border-top: 3px solid var(--tinta); }
+.tabla-lineas { margin-top: 8px; }
 .fila-linea {
   display: grid; grid-template-columns: 4em minmax(120px, 1fr) 6.5em 7em 6em; align-items: center; gap: 16px;
   padding: 12px 4px; border-bottom: 1px solid var(--linea); font-variant-numeric: tabular-nums;
@@ -302,3 +303,78 @@ main { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
   text-decoration: underline; text-underline-offset: 0.2em;
 }
 .enlace:hover { color: var(--tinta); }
+
+
+/* =====================================================================
+   Banda de arriba: sala de control oscura en los dos modos.
+   Reutiliza los colores del panel de andén redefiniendo los tokens dentro.
+   ===================================================================== */
+.escenario {
+  --fondo: var(--panel); --fondo-2: var(--panel-2); --tinta: var(--panel-tinta); --tinta-2: #c9cbc6; --tinta-3: var(--panel-tenue);
+  --linea: var(--panel-linea); --neutro: #3d4246; --bien: var(--panel-bien); --medio: var(--panel-tarde); --mal: var(--panel-mal);
+  color-scheme: dark; background: var(--panel); color: var(--tinta);
+  padding-bottom: 28px;
+}
+.escenario ::selection { background: var(--ambar); color: #0d0d0d; }
+.escenario :focus-visible { outline-color: var(--ambar); }
+.escenario .reloj { color: var(--ambar); }
+.escenario .titular { font-size: clamp(2.1rem, 3.3vw, 3rem); }
+.escenario .titular em { color: var(--ambar); }
+.escenario .titular em.bien { color: var(--panel-bien); }
+.escenario .mapa-marco { border-color: var(--panel-linea); background: #0b0d0f; box-shadow: 0 30px 60px -40px rgba(0, 0, 0, 0.9); }
+.escenario .mapa-marco { display: flex; }
+.escenario .mapa { flex: 1; height: auto; min-height: clamp(500px, 74vh, 780px); } /* llena su caja aunque la columna de al lado sea más alta */
+.escenario .filtro-lineas .filtro-todas { --color: var(--panel-tinta); --texto: #0d0d0d; }
+.escenario .red-barras .t2 { box-shadow: 0 0 8px -1px var(--muy-tarde); }
+.escenario .peores-lista button:hover:not(:disabled) { background: var(--panel-2); }
+.escenario .ficha-linea { background: var(--panel-2); }
+.escenario + main .estacion { margin-top: 0; border-top: 0; }
+.filtro-lineas button small { font-weight: 600; opacity: 0.75; margin-left: 4px; font-variant-numeric: tabular-nums; }
+
+/* Panel de salidas: barra superior de andén */
+.tablero-barra {
+  display: flex; align-items: baseline; gap: 14px; padding: 16px 22px 14px; border-bottom: 2px solid var(--panel-linea);
+  background: linear-gradient(var(--panel-2), var(--panel));
+}
+.tablero-salidas { color: var(--ambar); font-weight: 800; font-size: 0.875rem; letter-spacing: 0.02em; }
+.tablero-estacion { min-width: 0; font-size: clamp(1.25rem, 2.4vw, 1.75rem); font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tablero-reloj { margin-left: auto; color: var(--ambar); font-weight: 800; font-stretch: 80%; font-size: 1.75rem; font-variant-numeric: tabular-nums; }
+.tablero .salida:first-of-type { min-height: 84px; }
+.tablero .salida:first-of-type .salida-hora { font-size: 2.6rem; }
+.tablero .salida.tarde:first-of-type .salida-hora { font-size: 1.6rem; }
+
+/* =====================================================================
+   Puntualidad por línea: clasificación con el porcentaje como marcador
+   ===================================================================== */
+.ranking { list-style: none; margin: 24px 0 0; padding: 0; display: grid; gap: 10px; }
+.puesto {
+  display: grid; grid-template-columns: 3.4em 5.6em minmax(0, 1fr) auto; align-items: center; gap: 6px 18px;
+  padding: 14px 18px; border-radius: 12px; background: var(--fondo-2); border-left: 6px solid var(--color);
+}
+.puesto .linea-chip { font-size: 1.0625rem; height: 2em; min-width: 3em; }
+.puesto-pct { font-weight: 800; font-stretch: 80%; font-size: 2.4rem; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.puesto-pct small { font-size: 0.5em; font-weight: 700; margin-left: 1px; }
+.puesto-pct.mal { color: var(--mal); }
+.puesto-pct.medio { color: var(--medio); }
+.puesto-pct.bien { color: var(--bien); }
+.puesto-cuerpo { min-width: 0; display: grid; gap: 6px; }
+.puesto-nombre { font-size: 0.875rem; font-weight: 600; color: var(--tinta-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.puesto-barra { position: relative; height: 12px; border-radius: 999px; background: color-mix(in srgb, var(--tinta) 10%, transparent); }
+.puesto-barra span { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--color); }
+.puesto-barra i { position: absolute; top: -4px; bottom: -4px; width: 2px; border-radius: 1px; background: var(--tinta-3); opacity: 0.6; }
+.puesto-datos { text-align: right; font-size: 0.8125rem; color: var(--tinta-3); line-height: 1.5; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.puesto-datos strong { color: var(--tinta); font-size: 0.9375rem; }
+.ranking-escala { display: flex; justify-content: flex-end; gap: 16px; margin-top: 10px; font-size: 0.8125rem; color: var(--tinta-3); }
+
+@media (max-width: 700px) {
+  .escenario .mapa { height: 56vh; min-height: 340px; }
+  .escenario .titular { font-size: 2rem; }
+  .tablero-barra { padding: 12px 14px; gap: 10px; }
+  .tablero-reloj { font-size: 1.375rem; }
+  .tablero .salida:first-of-type .salida-hora { font-size: 2rem; }
+  .puesto { grid-template-columns: 3em 1fr auto; grid-template-areas: 'chip pct datos' 'cuerpo cuerpo cuerpo'; padding: 12px 14px; gap: 8px 12px; }
+  .puesto .linea-chip { grid-area: chip; }
+  .puesto-pct { grid-area: pct; font-size: 2rem; }
+  .puesto-cuerpo { grid-area: cuerpo; }
+  .puesto-datos { grid-area: datos; }
+}

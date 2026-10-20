@@ -78,6 +78,9 @@ export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstac
       paint: { 'text-color': tinta(), 'text-halo-color': papel(), 'text-halo-width': 2.5 } });
 
     // Trenes: halo (late si va muy tarde), punto del color de su línea con anillo según el retraso y "+11′".
+    // Brillo suave del color de la línea debajo de cada tren (sobre el mapa oscuro parecen luces).
+    mapa.addLayer({ id: 'trenes-brillo', type: 'circle', source: 'trenes', filter: filtroLineas(),
+      paint: { 'circle-radius': ancho(10, 18), 'circle-color': ['get', 'color'], 'circle-blur': 1, 'circle-opacity': 0.45 } });
     mapa.addLayer({ id: 'trenes-halo', type: 'circle', source: 'trenes', filter: ['all', filtroLineas(), ['>=', ['get', 'retraso'], TARDE]],
       paint: { 'circle-radius': 14, 'circle-blur': 0.4, 'circle-opacity': 0.3,
         'circle-color': ['case', ['>=', ['get', 'retraso'], MUY_TARDE], '#e5342a', '#f2a33a'] } }); // = --muy-tarde / --tarde
@@ -195,6 +198,7 @@ export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstac
       mapa.setFilter('trazados', filtroLineas());
       mapa.setFilter('trazados-borde', filtroLineas());
       mapa.setFilter('trenes', filtroLineas());
+      mapa.setFilter('trenes-brillo', filtroLineas());
       mapa.setFilter('trenes-halo', ['all', filtroLineas(), ['>=', ['get', 'retraso'], TARDE]]);
       mapa.setFilter('trenes-retraso', ['all', filtroLineas(), ['>=', ['get', 'retraso'], 5]]);
     },

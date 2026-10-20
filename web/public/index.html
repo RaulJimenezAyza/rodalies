@@ -34,6 +34,7 @@
     <script type="module" src="app.js"></script>
   </head>
   <body>
+    <div class="escenario">
     <header class="cabecera">
       <a class="marca" href="/">
         <svg class="marca-logo" viewBox="0 0 24 24" aria-hidden="true">
@@ -82,6 +83,7 @@
         <div class="fichas-linea" id="fichas-linea" aria-live="polite"></div>
       </div>
     </section>
+    </div>
 
     <main>
       <section class="estacion" id="salidas" aria-labelledby="titulo-estacion">
@@ -95,7 +97,14 @@
           </div>
         </div>
         <div class="atajos" id="atajos" aria-label="Estaciones frecuentes"></div>
-        <div class="tablero" id="tablero" aria-live="polite"></div>
+        <div class="tablero">
+          <div class="tablero-barra">
+            <span class="tablero-salidas">Salidas</span>
+            <strong class="tablero-estacion" id="tablero-estacion"></strong>
+            <time class="tablero-reloj" id="tablero-reloj"></time>
+          </div>
+          <div id="tablero" aria-live="polite"></div>
+        </div>
         <p class="tablero-nota">
           La hora tachada es la prevista y debajo del retraso, la hora a la que sale de verdad. El retraso es el que
           lleva el tren ahora mismo según Renfe: si aún no ha llegado a tu estación, puede recuperar o perder algo de

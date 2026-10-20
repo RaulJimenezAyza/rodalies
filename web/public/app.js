@@ -103,6 +103,7 @@ function pintar() {
   pintarAhora();
   pintarPeores();
   pintarFichas();
+  pintarCuentasFiltro();
   pintarTrenesEnMapa();
   pintarTablero();
 }
@@ -133,6 +134,7 @@ function prepararReloj() {
   const formato = new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
   const tic = () => {
     $('reloj').textContent = formato.format(new Date());
+    $('tablero-reloj').textContent = $('reloj').textContent;
     if (!estado.ts) return;
     const hace = Math.max(0, Math.round(Date.now() / 1000 - estado.ts));
     const viejo = hace > 180;
@@ -188,7 +190,7 @@ function prepararMapa() {
   }
   estado.mapa = crearMapa({
     contenedor: 'mapa',
-    oscuro: esOscuro(),
+    oscuro: true, // la banda de arriba es oscura en los dos modos
     trazados: estado.trazados,
     paradas: estado.paradas,
     alElegirEstacion: (id) => elegirEstacion(id, { volar: false, irAlPanel: true }),
@@ -276,6 +278,17 @@ function alternarLinea(linea, sola = false) {
   aplicarFiltro();
 }
 
+// Cuántos trenes de cada línea circulan ahora, en su botón.
+function pintarCuentasFiltro() {
+  const cuenta = new Map();
+  for (const t of estado.vivo.values()) if (!t[4] && t[2] !== null) cuenta.set(t[1], (cuenta.get(t[1]) ?? 0) + 1);
+  $('filtro-lineas').querySelectorAll('[data-linea]').forEach((b) => {
+    const n = cuenta.get(b.dataset.linea) ?? 0;
+    b.innerHTML = `${b.dataset.linea}<small>${n}</small>`;
+    b.title = `${estado.lineas[b.dataset.linea]?.nombre ?? b.dataset.linea}: ${n} ${n === 1 ? 'tren' : 'trenes'} ahora`;
+  });
+}
+
 function aplicarFiltro() {
   const caja = $('filtro-lineas');
   caja.querySelector('.filtro-todas').setAttribute('aria-pressed', String(!estado.filtro.size));
@@ -356,6 +369,7 @@ function pintarAtajos() {
 }
 
 function pintarTablero() {
+  $('tablero-estacion').textContent = nombre(estado.estacion);
   const tablero = $('tablero');
   if (!estado.horario) {
     tablero.innerHTML = '<p class="tablero-vacio">No hay horarios de hoy cargados. Vuelve a intentarlo en un rato.</p>';
@@ -417,17 +431,20 @@ async function cargarLineas() {
     return;
   }
   const filas = lineas.map((l) => ({ ...l, pct: l.puntuales / l.con_dato })).sort((a, b) => a.pct - b.pct);
-  const colorPct = (p) => (p >= 0.9 ? 'var(--bien)' : p >= 0.75 ? 'var(--medio)' : 'var(--mal)');
-  $('tabla-lineas').innerHTML = `
-    <div class="fila-linea cabeza" aria-hidden="true"><span>Línea</span><span>Puntuales</span><span class="dato">%</span><span class="dato">Retraso medio</span><span class="dato">Cancelados</span></div>
-    ${filas.map((l) => `
-      <div class="fila-linea">
+  const tono = (p) => (p >= 0.9 ? 'bien' : p >= 0.75 ? 'medio' : 'mal');
+  $('tabla-lineas').innerHTML = `<ol class="ranking">${filas.map((l) => `
+      <li class="puesto" style="--color:#${colorDe(l.linea)}">
         ${chip(l.linea)}
-        <div class="barra-puntual" role="img" aria-label="${numero(l.pct * 100)} % puntuales"><span style="width:${(l.pct * 100).toFixed(1)}%;background:${colorPct(l.pct)}"></span></div>
-        <span class="dato"><strong>${numero(l.pct * 100)} %</strong><small>${l.puntuales} de ${l.con_dato}</small></span>
-        <span class="dato"><strong>${numero((l.retraso_medio ?? 0) / 60, 1)} min</strong></span>
-        <span class="dato"><strong>${l.cancelados}</strong></span>
-      </div>`).join('')}`;
+        <span class="puesto-pct ${tono(l.pct)}">${numero(l.pct * 100)}<small>%</small></span>
+        <div class="puesto-cuerpo">
+          <span class="puesto-nombre">${estado.lineas[l.linea]?.nombre ?? ''}</span>
+          <div class="puesto-barra" role="img" aria-label="${numero(l.pct * 100)} % de trenes puntuales">
+            <span style="width:${(l.pct * 100).toFixed(1)}%"></span><i style="left:75%"></i><i style="left:90%"></i>
+          </div>
+        </div>
+        <span class="puesto-datos"><strong>${l.puntuales} de ${l.con_dato}</strong> puntuales<br>${numero((l.retraso_medio ?? 0) / 60, 1)} min de media${l.cancelados ? ` · ${l.cancelados} cancel.` : ''}</span>
+      </li>`).join('')}</ol>
+    <p class="ranking-escala"><span>Las rayitas marcan el 75 % y el 90 %.</span></p>`;
 }
 
 // ---------- Modo claro / oscuro ----------
@@ -438,7 +455,6 @@ function prepararTema() {
     const oscuro = esOscuro();
     boton.innerHTML = icono(oscuro ? 'sol' : 'luna');
     boton.setAttribute('aria-label', oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro');
-    estado.mapa?.cambiarTema(oscuro);
   };
   boton.addEventListener('click', () => {
     const nuevo = esOscuro() ? 'light' : 'dark';
