@@ -349,7 +349,7 @@ body.datos-viejos .tablero, body.datos-viejos .mi-estacion ul { opacity: 0.6; }
 @keyframes paleta { 0% { transform: rotateX(-88deg); opacity: 0.2; } 60% { transform: rotateX(12deg); opacity: 1; } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .salida.cambia .salida-hora, .salida.cambia .salida-estado > span { animation: none; } }
 .tablero-vacio { padding: 28px 22px; color: var(--panel-tenue); }
-.tablero-nota { margin-top: 14px; font-size: 0.875rem; color: var(--tinta-3); max-width: 75ch; line-height: 1.55; }
+.tablero-nota { margin-top: 14px; font-size: 0.875rem; color: var(--tinta-3); line-height: 1.55; text-align: justify; hyphens: auto; }
 .tablero-nota strong { color: var(--tinta-2); }
 
 /* =====================================================================
@@ -357,7 +357,7 @@ body.datos-viejos .tablero, body.datos-viejos .mi-estacion ul { opacity: 0.6; }
    ===================================================================== */
 .lineas { padding: 40px 0 56px; border-top: 1px solid var(--linea); }
 .lineas h2 { font-weight: 800; font-size: clamp(1.6rem, 3vw, 2.2rem); letter-spacing: -0.03em; }
-.seccion-sub { margin-top: 6px; color: var(--tinta-3); max-width: 70ch; }
+.seccion-sub { margin-top: 6px; color: var(--tinta-3); text-align: justify; hyphens: auto; }
 .tabla-lineas { margin-top: 8px; }
 .ranking { list-style: none; margin: 24px 0 0; padding: 0; display: grid; gap: 8px; }
 .puesto {
@@ -381,7 +381,7 @@ body.datos-viejos .tablero, body.datos-viejos .mi-estacion ul { opacity: 0.6; }
 
 /* ---------- Pie, alineado con el contenido ---------- */
 .pie { width: min(1200px, calc(100% - 40px)); margin: 0 auto; padding: 28px 0 56px; border-top: 1px solid var(--linea); }
-.pie p { max-width: 75ch; color: var(--tinta-2); font-size: 0.9375rem; line-height: 1.6; }
+.pie p { text-align: justify; hyphens: auto; color: var(--tinta-2); font-size: 0.9375rem; line-height: 1.6; }
 
 /* =====================================================================
    Pantallas medianas y móvil
