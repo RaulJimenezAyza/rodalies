@@ -3,6 +3,8 @@
 // arrastrar: si se lanza fuera de la pantalla, se va (y no vuelve en 30 días); si no, vuelve a su sitio con un rebote.
 
 const ENLACE = 'https://ko-fi.com/rauljimenezz';
+// Formulario de Ko-fi para incrustar: se paga sin salir de la web (PayPal abre su propia ventanita).
+const INCRUSTADO = `${ENLACE}/?hidefeed=true&widget=true&embed=true&preview=true`;
 const CLAVE = 'cafe-fuera';
 const VUELVE_EN = 30 * 24 * 3600 * 1000;
 const APARECE_TRAS = 5000; // ms: que no compita con la carga de la página
@@ -18,6 +20,33 @@ function fuera() {
 }
 function despedir() {
   try { localStorage.setItem(CLAVE, String(Date.now())); } catch {}
+}
+
+// Ventana con el formulario de Ko-fi. El iframe solo se carga al abrirla: hasta entonces, nada de Ko-fi en la página.
+let ventana = null;
+function abrirVentana() {
+  if (!ventana) {
+    ventana = document.createElement('dialog');
+    ventana.className = 'cafe-ventana';
+    ventana.setAttribute('aria-label', 'Invítame a un café');
+    ventana.innerHTML = `
+      <div class="cafe-ventana-cab">
+        <strong>${TAZA} Invítame a un café</strong>
+        <button type="button" class="boton-cerrar" aria-label="Cerrar">×</button>
+      </div>
+      <div class="cafe-ventana-cuerpo"><p class="cafe-cargando">Cargando Ko-fi…</p></div>
+      <p class="cafe-ventana-pie">Pago seguro con Ko-fi (PayPal o tarjeta). ¿No carga? <a href="${ENLACE}" target="_blank" rel="noopener">Ábrelo en Ko-fi</a>.</p>`;
+    document.body.append(ventana);
+    ventana.querySelector('.boton-cerrar').addEventListener('click', () => ventana.close());
+    // Tocar fuera de la ventana la cierra.
+    ventana.addEventListener('click', (e) => { if (e.target === ventana) ventana.close(); });
+    const marco = document.createElement('iframe');
+    marco.title = 'Invítame a un café en Ko-fi';
+    marco.src = INCRUSTADO;
+    marco.addEventListener('load', () => ventana.querySelector('.cafe-cargando')?.remove());
+    ventana.querySelector('.cafe-ventana-cuerpo').append(marco);
+  }
+  ventana.showModal();
 }
 
 export function prepararCafe() {
@@ -86,12 +115,16 @@ export function prepararCafe() {
   };
   boton.addEventListener('pointerup', soltar);
   boton.addEventListener('pointercancel', soltar);
-  // Si se ha arrastrado, no es un toque: no abre el enlace.
+  // Si se ha arrastrado, no es un toque: no abre nada. Si es un toque, abre Ko-fi dentro de la web
+  // (el enlace normal queda para quien abra en otra pestaña con Ctrl/rueda o sin JavaScript).
   boton.addEventListener('click', (e) => {
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;
+    e.preventDefault();
     if (movido) {
-      e.preventDefault();
       movido = false;
+      return;
     }
+    abrirVentana();
   });
 
   // En el móvil, la primera vez, una pista de que se puede quitar.
