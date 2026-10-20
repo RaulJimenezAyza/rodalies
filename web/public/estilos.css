@@ -438,3 +438,59 @@ body.datos-viejos .tablero, body.datos-viejos .mi-estacion ul { opacity: 0.6; }
   .puesto-datos { grid-area: datos; }
   .puesto-nombre { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 }
+
+/* =====================================================================
+   Invítame a un café: pastilla flotante (ordenador) / taza que se lanza (móvil)
+   ===================================================================== */
+.cafe {
+  --x: 0px; --y: 0px; --giro: 0deg;
+  position: fixed; right: 20px; bottom: 20px; z-index: 40;
+  transform: translate(var(--x), var(--y)) rotate(var(--giro)) scale(0.4); opacity: 0; pointer-events: none;
+  transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s;
+}
+.cafe.visible { transform: translate(var(--x), var(--y)) rotate(var(--giro)); opacity: 1; pointer-events: auto; }
+.cafe.arrastrando { transition: none; }
+.cafe.saliendo { transform: translate(var(--x), var(--y)) rotate(calc(var(--giro) + 120deg)) scale(0.6); opacity: 0; transition: transform 0.45s ease-in, opacity 0.45s ease-in; }
+.cafe-boton {
+  display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 18px 0 14px; border-radius: 999px;
+  background: var(--ambar); color: #0d0d0d; font-weight: 800; font-size: 0.9375rem; text-decoration: none;
+  box-shadow: 0 10px 28px -10px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s var(--suave), box-shadow 0.2s; -webkit-user-select: none; user-select: none;
+}
+.cafe-boton:hover { transform: translateY(-2px) rotate(-2deg); box-shadow: 0 14px 32px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.08); }
+.cafe-boton:focus-visible { outline: 3px solid var(--tinta); outline-offset: 3px; }
+.cafe-taza { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
+.cafe-vapor { opacity: 0.35; }
+.cafe-boton:hover .cafe-vapor, .cafe.visible .cafe-vapor { animation: vapor 2.4s ease-in-out infinite; }
+@keyframes vapor { 0%, 100% { transform: translateY(1px); opacity: 0.2; } 50% { transform: translateY(-1.5px); opacity: 0.8; } }
+.cafe-cerrar {
+  position: absolute; top: -8px; left: -8px; width: 26px; height: 26px; border-radius: 50%; border: 0;
+  display: grid; place-items: center; padding: 0; background: var(--tinta); color: var(--fondo);
+  font-size: 1rem; line-height: 1; cursor: pointer; opacity: 0; transform: scale(0.6); transition: opacity 0.15s, transform 0.15s var(--suave);
+}
+/* Área de toque mayor que el círculo visible */
+.cafe-cerrar::before { content: ''; position: absolute; inset: -9px; }
+.cafe:hover .cafe-cerrar, .cafe:focus-within .cafe-cerrar { opacity: 1; transform: none; }
+.cafe-pista { display: none; }
+
+@media (max-width: 700px), (pointer: coarse) {
+  .cafe { right: 14px; bottom: 16px; }
+  .cafe-boton { width: 54px; height: 54px; min-height: 0; padding: 0; justify-content: center; touch-action: none; cursor: grab; }
+  .cafe-boton:hover { transform: none; }
+  .cafe-taza { width: 26px; height: 26px; }
+  .cafe-texto, .cafe-cerrar { display: none; }
+  .cafe.visible:not(.arrastrando) .cafe-boton { animation: menear 5s ease-in-out 1.2s infinite; }
+  .cafe-pista {
+    display: block; position: absolute; right: 64px; top: 50%; translate: 0 -50%; white-space: nowrap;
+    padding: 7px 11px; border-radius: var(--r-s); background: var(--tinta); color: var(--fondo); font-size: 0.8125rem; font-weight: 600;
+    opacity: 0; transform: translateX(8px); transition: opacity 0.25s, transform 0.25s var(--suave); pointer-events: none;
+  }
+  .cafe.con-pista .cafe-pista { opacity: 1; transform: none; }
+}
+/* De vez en cuando la taza se menea un poco: "aquí estoy" */
+@keyframes menear { 0%, 88%, 100% { transform: rotate(0); } 91% { transform: rotate(-12deg); } 94% { transform: rotate(10deg); } 97% { transform: rotate(-5deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .cafe, .cafe.saliendo { transition: opacity 0.2s; }
+  .cafe-vapor, .cafe-boton { animation: none !important; }
+}
+@media print { .cafe { display: none; } }

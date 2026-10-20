@@ -3,6 +3,7 @@ import {
 } from './tablero.js';
 import { icono } from './iconos.js';
 import { crearMapa } from './mapa.js';
+import { prepararCafe } from './cafe.js';
 
 const ATAJOS = ['71801', '71802', '78805', '79009', '79400']; // Sants, Pg. de Gràcia, Pl. Catalunya, Clot, Estació de França
 const UMBRAL = TARDE * 60; // segundos: a partir de ahí un tren va «tarde» en toda la web
@@ -47,6 +48,7 @@ async function iniciar() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   prepararTema();
   prepararReloj();
+  prepararCafe();
   $('buscador-icono').innerHTML = icono('buscar');
   try {
     [estado.paradas, estado.lineas, estado.trazados] = await Promise.all([
