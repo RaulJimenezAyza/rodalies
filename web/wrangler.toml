@@ -1,0 +1,10 @@
+# Web de Rodalies al minuto en Cloudflare Pages: public/ (estática, con los horarios en datos/) y functions/api.
+#   npm run horarios && npm run desplegar:web
+name = "rodalies-reloda"
+pages_build_output_dir = "public"
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "rodalies"
+database_id = "4b437028-f6b0-476c-8524-c3b95ac048c8"

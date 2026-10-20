@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rodalies al minuto · Qué trenes van tarde, ahora</title>
+    <meta name="description" content="Los próximos trenes de Rodalies en tu estación con su retraso real, y la puntualidad de cada línea." />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)" />
+    <script>
+      try { const t = localStorage.getItem('tema'); if (t) document.documentElement.dataset.theme = t; } catch {}
+    </script>
+    <link rel="canonical" href="https://rodalies.reloda.es/" />
+    <link rel="icon" href="icono.svg" type="image/svg+xml" />
+    <link rel="preload" href="fuentes/archivo.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="estilos.css" />
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <header class="cabecera">
+      <a class="marca" href="/">
+        <svg class="marca-logo" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="2" y="2" width="5" height="20" rx="2.5" fill="#7DBCEC" />
+          <rect x="9.5" y="2" width="5" height="20" rx="2.5" fill="#26A741" />
+          <rect x="17" y="2" width="5" height="20" rx="2.5" fill="#E54A3C" />
+        </svg>
+        Rodalies al minuto
+      </a>
+      <button type="button" class="boton-tema" id="boton-tema"></button>
+    </header>
+
+    <main>
+      <section class="ahora" aria-labelledby="titular">
+        <h1 class="titular" id="titular">Cargando los trenes…</h1>
+        <p class="ahora-texto" id="ahora-texto"></p>
+      </section>
+
+      <section class="estacion" aria-labelledby="titulo-estacion">
+        <div class="estacion-cab">
+          <h2 id="titulo-estacion">Salidas de</h2>
+          <div class="buscador">
+            <span class="buscador-icono" id="buscador-icono"></span>
+            <input id="estacion" type="search" list="estaciones" autocomplete="off" spellcheck="false"
+              placeholder="Busca tu estación" aria-label="Tu estación" />
+            <datalist id="estaciones"></datalist>
+          </div>
+        </div>
+        <div class="atajos" id="atajos" aria-label="Estaciones frecuentes"></div>
+        <div class="tablero" id="tablero" aria-live="polite"></div>
+        <p class="tablero-nota">
+          El retraso es el que lleva el tren ahora mismo según Renfe: si aún no ha llegado a tu estación, puede
+          recuperar o perder algo de tiempo por el camino.
+        </p>
+      </section>
+
+      <section class="lineas" aria-labelledby="titulo-lineas">
+        <h2 id="titulo-lineas">Puntualidad por línea</h2>
+        <p class="seccion-sub" id="lineas-sub"></p>
+        <div class="tabla-lineas" id="tabla-lineas"></div>
+      </section>
+    </main>
+
+    <footer class="pie">
+      <p>
+        Datos en tiempo real y horarios de <a href="https://data.renfe.com/" rel="noopener">Renfe</a>. Esta web guarda
+        cada minuto el estado de todos los trenes de Rodalies para poder contar su puntualidad, algo que Renfe no publica.
+        No tiene cuentas ni cookies: solo recuerda tu estación en este navegador. Es un proyecto personal y de código
+        abierto, en <a href="https://github.com/RaulJimenezAyza/rodalies" rel="noopener">GitHub</a>.
+      </p>
+    </footer>
+  </body>
+</html>

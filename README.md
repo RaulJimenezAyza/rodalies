@@ -5,7 +5,7 @@ qué línea, tramo y hora fallan más, "¿llegará tarde mi tren?" y ayuda para 
 Destino: **https://rodalies.reloda.es**.
 
 Estado: **el colector funciona desde el 20/10/2026** y guarda cada minuto el estado de todos los trenes
-de Rodalies. La web viene después: el valor está en el histórico, y cada minuto que no se guarda se pierde.
+de Rodalies. La web muestra las salidas de cada estación con su retraso real y la puntualidad por línea.
 
 ## Datos
 
@@ -28,38 +28,50 @@ previstos y los nombres de las paradas).
 ## Arquitectura (0 €, sin tarjeta)
 
 ```
-Cada minuto (cron)                       Base de datos D1 "rodalies"
-Worker rodalies-colector  ─────────────> capturas: 1 fila por minuto
-lee trip_updates.json, se queda con      avisos:   1 fila por aviso de Rodalies
-los ~100 trenes de Rodalies              (alerts.json, cada 10 minutos)
+Cada minuto (cron)                       D1 "rodalies"
+Worker rodalies-colector  ─────────────> capturas  1 fila por minuto (se borran a los 8 días)
+  · lee trip_updates.json                avisos    1 fila por aviso de Rodalies
+  · cada 10 min, alerts.json             resumen   1 fila por tren y día (se queda)
+  · cada hora, suma las capturas
+    nuevas al resumen
+                                                     ▲
+Web rodalies.reloda.es (Cloudflare Pages)            │
+  public/            estática + horarios en datos/   │
+  functions/api/     /api/ahora (última captura) ────┤
+                     /api/lineas (puntualidad) ──────┘
 ```
 
 - **Colector** (`colector/`): cada captura guarda `[tren, línea, retraso_s, próxima_parada, cancelado]`
-  de cada tren. Son unos **2,8 KB por minuto, ~4 MB al día**. Si Renfe no ha actualizado el feed, la
-  marca de tiempo se repite y no se duplica nada.
-- **D1** en lugar de R2: R2 pide tarjeta para activarse. El plan gratuito de D1 da para varios meses de
-  capturas en crudo; antes de llegar al límite hay que añadir la compactación nocturna (resumen por tren y
-  día, y borrar el crudo antiguo).
-- **Peticiones**: el colector gasta 1.440 al día de las 100.000 gratuitas de Workers (las consultas a Renfe
-  no cuentan). Si hiciera falta, cada 2 minutos serían 720.
-- **Repositorio público**, para no gastar los minutos de GitHub Actions de los privados.
+  de cada tren: unos **2,8 KB por minuto**. Si Renfe no ha actualizado el feed, no se duplica nada.
+- **Resumen por hora** en lugar de una compactación nocturna: recorrer un día entero con SQL leería
+  ~2 millones de filas (casi la mitad del cupo diario gratuito de D1). Sumando cada hora las ~60
+  capturas nuevas cuesta ~60 lecturas y ~120 escrituras, y el resumen está siempre al día.
+- **Horarios** (`npm run horarios`): el GTFS de Renfe se convierte en archivos estáticos por día
+  (`web/public/datos/horarios/AAAA-MM-DD.json`, ~350 KB, ~60 KB comprimido). No gastan peticiones ni D1.
+  El GTFS trae unas 4 semanas: **hay que regenerarlos y volver a publicar la web cada 2–3 semanas.**
+  El viaje de hoy en el GTFS se llama igual que en el tiempo real (`5191M28289R2S`).
+- **Peticiones de Workers**: el colector gasta 1.440 al día de las 100.000 gratuitas; la web, ~2 por
+  visita y 1 por minuto mientras está abierta (las APIs se cachean en Cloudflare).
+- **D1** en lugar de R2, porque R2 pide tarjeta para activarse.
 
-Comprobar que funciona: `https://rodalies-colector.dimelo-game.workers.dev/estado`.
+Comprobar el colector: `https://rodalies-colector.dimelo-game.workers.dev/estado`.
 
 ## Uso
 
 ```bash
 npm install
 npm test
-npm run desplegar:colector                                              # publica el Worker
+npm run horarios               # regenera los horarios desde el GTFS de Renfe
+npm run desplegar:web          # regenera los horarios y publica la web (rodalies-reloda)
+npm run desplegar:colector     # publica el colector
 npx wrangler d1 execute rodalies --remote --file colector/schema.sql    # crea las tablas (una vez)
-npx wrangler d1 execute rodalies --remote --command "SELECT COUNT(*) FROM capturas"
 ```
 
 ## Plan
 
 1. [x] Colector cada minuto en D1
-2. [ ] GTFS estático: horarios previstos, nombres de paradas y orden de cada línea
-3. [ ] Compactación nocturna: resumen por tren y día; borrar el crudo de hace más de una semana
-4. [ ] Web en rodalies.reloda.es: "mi tren" y clasificación de líneas
-5. [ ] Mapa en directo, predicción por tramo, ayuda para reclamar
+2. [x] Horarios del GTFS estático como archivos de la web
+3. [x] Resumen por tren y día (cada hora) y borrado del crudo a los 8 días
+4. [x] Web en rodalies.reloda.es: panel de salidas de tu estación y puntualidad por línea
+5. [ ] "Mi tren": historial de un tren concreto (¿suele llegar tarde el de las 8:12?)
+6. [ ] Mapa en directo, predicción por tramo, ayuda para reclamar

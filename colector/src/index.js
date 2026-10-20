@@ -1,5 +1,6 @@
 // Colector de Rodalies: cada minuto guarda en D1 el estado de todos los trenes de Rodalies (retraso y
-// próxima parada) a partir del tiempo real de Renfe. Cada 10 minutos guarda también los avisos nuevos.
+// próxima parada) a partir del tiempo real de Renfe. Cada 10 minutos guarda también los avisos nuevos, y
+// cada hora (minuto 5) suma las capturas nuevas al resumen por tren y día y borra el crudo de hace 8 días.
 //
 // Es lo primero que se pone en marcha porque el valor del proyecto es el histórico: Renfe solo da el
 // "ahora", y cada minuto que no se guarda se pierde.
@@ -7,20 +8,24 @@
 // GET /estado devuelve cuánto se lleva guardado (para comprobar que funciona).
 
 import { extraerAvisos, extraerTrenes } from './rodalies.js';
+import { resumir, SQL_SUMAR } from './resumen.js';
 
 const TRENES = 'https://gtfsrt.renfe.com/trip_updates.json';
 const AVISOS = 'https://gtfsrt.renfe.com/alerts.json';
 
 export default {
   async scheduled(evento, env, ctx) {
-    ctx.waitUntil(capturar(env, new Date(evento.scheduledTime)));
+    const cuando = new Date(evento.scheduledTime);
+    ctx.waitUntil(capturar(env, cuando));
+    if (cuando.getUTCMinutes() === 5) ctx.waitUntil(resumirHora(env));
   },
 
   async fetch(request, env) {
     if (new URL(request.url).pathname !== '/estado') return new Response('Colector de Rodalies', { status: 404 });
-    const [capturas, avisos] = await env.DB.batch([
+    const [capturas, avisos, resumen] = await env.DB.batch([
       env.DB.prepare('SELECT COUNT(*) AS total, MIN(ts) AS primera, MAX(ts) AS ultima FROM capturas'),
       env.DB.prepare('SELECT COUNT(*) AS total FROM avisos'),
+      env.DB.prepare("SELECT COUNT(*) AS trenes, COUNT(DISTINCT fecha) AS dias, (SELECT valor FROM progreso WHERE clave = 'resumido_hasta') AS hasta FROM resumen"),
     ]);
     const c = capturas.results[0];
     const fecha = (s) => (s ? new Date(s * 1000).toISOString() : null);
@@ -30,6 +35,7 @@ export default {
       ultima: fecha(c.ultima),
       hace_segundos: c.ultima ? Math.round(Date.now() / 1000 - c.ultima) : null,
       avisos: avisos.results[0].total,
+      resumen: { trenes_dia: resumen.results[0].trenes, dias: resumen.results[0].dias, hasta: fecha(resumen.results[0].hasta) },
     });
   },
 };
@@ -51,6 +57,24 @@ async function capturar(env, cuando) {
       ));
     }
   }
+}
+
+// Suma al resumen las capturas que aún no estaban sumadas (como mucho 120, por si alguna hora falló).
+// Todo en un solo batch: si algo falla, no se marca como hecho y se reintenta la hora siguiente.
+async function resumirHora(env) {
+  const hasta = (await env.DB.prepare("SELECT valor FROM progreso WHERE clave = 'resumido_hasta'").first('valor')) ?? 0;
+  const { results } = await env.DB.prepare('SELECT ts, trenes FROM capturas WHERE ts > ? ORDER BY ts LIMIT 120').bind(hasta).all();
+  if (!results.length) return;
+  const capturas = results.map((r) => ({ ts: r.ts, trenes: JSON.parse(r.trenes) }));
+  const sumas = resumir(capturas).map((f) =>
+    env.DB.prepare(SQL_SUMAR).bind(f.fecha, f.tren, f.linea, f.primera, f.ultima, f.retraso_max, f.retraso_final, f.suma, f.n, f.cancelado, JSON.stringify(f.paradas))
+  );
+  const ultima = capturas.at(-1).ts;
+  await env.DB.batch([
+    ...sumas,
+    env.DB.prepare("INSERT INTO progreso (clave, valor) VALUES ('resumido_hasta', ?) ON CONFLICT (clave) DO UPDATE SET valor = excluded.valor").bind(ultima),
+    env.DB.prepare('DELETE FROM capturas WHERE ts < ?').bind(ultima - 8 * 86400),
+  ]);
 }
 
 async function leer(url) {

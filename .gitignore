@@ -1,3 +1,6 @@
 node_modules/
 .wrangler/
 .dev.vars
+
+# Se generan con npm run horarios (desde el GTFS de Renfe) antes de publicar la web
+web/public/datos/

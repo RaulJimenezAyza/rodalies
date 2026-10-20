@@ -4,9 +4,13 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "desplegar:colector": "wrangler deploy --config colector/wrangler.toml"
+    "desplegar:colector": "wrangler deploy --config colector/wrangler.toml",
+    "horarios": "node scripts/horarios.mjs",
+    "desplegar:web": "npm run horarios && cd web && wrangler pages deploy --branch main --commit-dirty=true",
+    "web": "cd web && wrangler pages dev --port 8790"
   },
   "devDependencies": {
+    "fflate": "^0.8.3",
     "wrangler": "^4"
   },
   "allowScripts": {
