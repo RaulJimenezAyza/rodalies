@@ -20,6 +20,7 @@ export async function conCache(contexto, segundos, calcular) {
   const guardada = await cache.match(clave);
   if (guardada) return guardada;
   const respuesta = await calcular(contexto);
-  if (respuesta.ok) contexto.waitUntil(cache.put(clave, respuesta.clone()));
+  // Solo se guarda lo que la propia respuesta dice que se puede cachear (no las vacías ni los errores).
+  if (respuesta.ok && !respuesta.headers.get('cache-control')?.includes('no-store')) contexto.waitUntil(cache.put(clave, respuesta.clone()));
   return respuesta;
 }

@@ -23,5 +23,6 @@ export const onRequestGet = (contexto) =>
              MAX(retraso_max) AS peor,
              MIN(fecha) AS primera_fecha
       FROM resumen WHERE fecha >= ?1 GROUP BY linea`).bind(desde, PUNTUAL).all();
-    return json({ desde, dias, umbral: PUNTUAL, lineas: results }, 200, 1800);
+    // Sin datos todavía (antes del primer resumen) no se cachea, para no quedarse 30 minutos en blanco.
+    return json({ desde, dias, umbral: PUNTUAL, lineas: results }, 200, results.length ? 1800 : 0);
   });

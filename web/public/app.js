@@ -160,7 +160,7 @@ function pintarTablero() {
 async function cargarLineas() {
   let datos;
   try {
-    datos = await pedir('/api/lineas?dias=7');
+    datos = await pedir('/api/lineas?dias=7&v=2'); // v: para saltarse respuestas antiguas en caché
   } catch {
     $('lineas-sub').textContent = 'No se han podido cargar los datos de las líneas.';
     return;
@@ -169,7 +169,7 @@ async function cargarLineas() {
   const desde = lineas.reduce((a, l) => (!a || l.primera_fecha < a ? l.primera_fecha : a), null);
   const fecha = (f) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${f}T12:00:00Z`));
   $('lineas-sub').textContent = desde
-    ? `Trenes que llegaron con menos de 5 minutos de retraso desde el ${fecha(desde)}. Esta web empezó a guardar datos el 20 de octubre de 2026: cuantos más días pasen, más fiable será.`
+    ? `Trenes que llegaron con menos de 5 minutos de retraso desde el ${fecha(desde)}${desde === '2026-10-20' ? ', el día en que esta web empezó a guardar datos. Con tan pocos días, los porcentajes aún pueden cambiar mucho' : ''}. Se actualiza cada hora.`
     : 'Todavía no hay datos suficientes: el resumen se calcula cada hora.';
   if (!lineas.length) {
     $('tabla-lineas').innerHTML = '';
