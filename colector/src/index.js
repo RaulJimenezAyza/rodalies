@@ -10,6 +10,8 @@
 import { extraerAvisos, extraerTrenes } from './rodalies.js';
 import { resumir, SQL_SUMAR } from './resumen.js';
 
+export { Directo } from './directo.js'; // el "repetidor" que manda lo nuevo a todas las webs abiertas
+
 const TRENES = 'https://gtfsrt.renfe.com/trip_updates.json';
 const AVISOS = 'https://gtfsrt.renfe.com/alerts.json';
 
@@ -46,6 +48,12 @@ async function capturar(env, cuando) {
   if (!Number.isFinite(ts) || !trenes.length) throw new Error(`Feed de trenes vacío o sin marca de tiempo (${trenes.length} trenes)`);
   // Si Renfe no ha actualizado el feed desde la última vez, la marca de tiempo es la misma y no se duplica.
   await env.DB.prepare('INSERT OR IGNORE INTO capturas (ts, trenes) VALUES (?, ?)').bind(ts, JSON.stringify(trenes)).run();
+  // Y se manda en directo a todas las webs abiertas (si falla, la web sigue pudiendo preguntar por /api/vivo).
+  try {
+    await env.DIRECTO.get(env.DIRECTO.idFromName('rodalies')).nuevosTrenes(ts, trenes);
+  } catch (e) {
+    console.warn('Directo:', e.message);
+  }
 
   if (cuando.getUTCMinutes() % 10 === 0) {
     const avisos = extraerAvisos(await leer(AVISOS));

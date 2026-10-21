@@ -10,7 +10,7 @@ const tr = t; // alias para donde una variable local se llama `t` (un tren)
 
 const ATAJOS = ['71801', '71802', '78805', '79009', '79400']; // Sants, Pg. de Gràcia, Pl. Catalunya, Clot, Estació de França
 const UMBRAL = TARDE * 60; // segundos: a partir de ahí un tren va «tarde» en toda la web
-const CADA = 30_000; // cada cuánto se pide /api/vivo (solo con la pestaña visible)
+const CADA = 60_000; // plan B: si no llega nada en directo, cada cuánto se pide /api/vivo (solo con la pestaña visible)
 const VIEJO = 150; // segundos: a partir de ahí se avisa de que los datos no son de ahora
 const VISTAS = ['viaje', 'mapa', 'red'];
 const $ = (id) => document.getElementById(id);
@@ -119,19 +119,86 @@ async function iniciar() {
   await cargarHorario();
   pintar();
   cargarLineas();
-  await cargarVivo();
+  await arrancarDirecto();
   pintar();
   if (estado.filtro.size) aplicarFiltro();
 
-  // En directo: cada 30 s mientras la pestaña está a la vista, y en cuanto se vuelve a ella.
+  // Los datos llegan solos por la conexión en directo. Por si se corta: cada minuto se comprueba y, si hace
+  // rato que no llega nada, se piden. Con la pestaña oculta se cierra la conexión (ni batería ni peticiones).
   setInterval(() => document.visibilityState === 'visible' && refrescar(), CADA);
-  document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && refrescar());
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      conectarDirecto();
+      refrescar();
+    } else cerrarDirecto();
+  });
 }
 
 async function refrescar() {
   await cargarHorario();
-  await cargarVivo();
+  if (Date.now() - ultimoMensaje > 90_000) await cargarVivo();
   pintar();
+}
+
+// ---------- En directo: el servidor manda lo nuevo a todas las webs abiertas a la vez ----------
+let directo = null; // la conexión (WebSocket) con el repetidor
+let reintento = 1000; // espera antes de reconectar, que crece si sigue fallando
+let ultimoMensaje = 0;
+
+function aplicarVivo(datos) {
+  estado.ts = datos.ts;
+  estado.vivo = new Map(datos.trenes.map((x) => [`${x[0]}|${x[1]}`, x]));
+  estado.posiciones = datos.posiciones ?? [];
+  estado.intentado = true;
+}
+
+function conectarDirecto() {
+  if (directo || !('WebSocket' in window) || document.visibilityState !== 'visible') return;
+  // En local (npm run local) se conecta al de producción, que es el que tiene los datos.
+  const local = /^(localhost|127\.)/.test(location.hostname);
+  const conexion = new WebSocket(`${local || location.protocol === 'https:' ? 'wss' : 'ws'}://${local ? 'rodalies.reloda.es' : location.host}/api/directo`);
+  directo = conexion;
+  conexion.addEventListener('message', (e) => {
+    try {
+      aplicarVivo(JSON.parse(e.data));
+    } catch {
+      return;
+    }
+    ultimoMensaje = Date.now();
+    reintento = 1000;
+    pintar();
+    estado.alPrimerDato?.();
+  });
+  conexion.addEventListener('close', () => {
+    if (directo !== conexion) return; // la cerramos nosotros (pestaña oculta)
+    directo = null;
+    setTimeout(conectarDirecto, reintento);
+    reintento = Math.min(reintento * 2, 60_000);
+  });
+  conexion.addEventListener('error', () => conexion.close());
+}
+
+function cerrarDirecto() {
+  const conexion = directo;
+  directo = null;
+  conexion?.close(1000);
+}
+
+/** Espera el primer dato por la conexión en directo; si en 4 s no llega, lo pide a /api/vivo. */
+function arrancarDirecto() {
+  return new Promise((listo) => {
+    const espera = setTimeout(async () => {
+      estado.alPrimerDato = null;
+      await cargarVivo();
+      listo();
+    }, 4000);
+    estado.alPrimerDato = () => {
+      clearTimeout(espera);
+      estado.alPrimerDato = null;
+      listo();
+    };
+    conectarDirecto();
+  });
 }
 
 async function pedir(url) {
@@ -156,10 +223,7 @@ async function cargarHorario() {
 
 async function cargarVivo() {
   try {
-    const datos = await pedir('/api/vivo');
-    estado.ts = datos.ts;
-    estado.vivo = new Map(datos.trenes.map((t) => [`${t[0]}|${t[1]}`, t]));
-    estado.posiciones = datos.posiciones;
+    aplicarVivo(await pedir('/api/vivo'));
   } catch {
     // Se queda con lo último que tenía; el aviso de datos viejos lo dice.
   }

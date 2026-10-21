@@ -36,6 +36,24 @@ export function extraerTrenes(feed) {
   return { ts, trenes };
 }
 
+const ESTADO_GPS = { STOPPED_AT: 'P', INCOMING_AT: 'L', IN_TRANSIT_TO: 'C' };
+
+/**
+ * De vehicle_positions.json a las posiciones GPS de los trenes de Rodalies.
+ * @returns {{ ts: number|null, posiciones: Array<[string, string, number, number, 'P'|'L'|'C', string|null]> }}
+ *   Cada tren: [número, línea, lat, lon, estado (parado en / llegando a / circulando hacia), parada].
+ */
+export function extraerPosiciones(feed) {
+  const posiciones = [];
+  for (const { vehicle: v } of feed?.entity ?? []) {
+    const encaje = v?.trip?.tripId?.match(VIAJE_RODALIES);
+    const lat = v?.position?.latitude, lon = v?.position?.longitude;
+    if (!encaje || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    posiciones.push([encaje[1], encaje[2], Number(lat.toFixed(5)), Number(lon.toFixed(5)), ESTADO_GPS[v.currentStatus] ?? 'C', v.stopId ?? null]);
+  }
+  return { ts: Number(feed?.header?.timestamp) || null, posiciones };
+}
+
 /**
  * De alerts.json a los avisos que tocan alguna línea de Rodalies.
  * @returns {{ id: string, inicio: number|null, fin: number|null, lineas: string[], texto: string }[]}

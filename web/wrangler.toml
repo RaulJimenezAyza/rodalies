@@ -8,3 +8,9 @@ compatibility_date = "2026-10-01"
 binding = "DB"
 database_name = "rodalies"
 database_id = "4b437028-f6b0-476c-8524-c3b95ac048c8"
+
+# El repetidor en directo vive en el worker del colector.
+[[durable_objects.bindings]]
+name = "DIRECTO"
+class_name = "Directo"
+script_name = "rodalies-colector"

@@ -11,3 +11,12 @@ crons = ["* * * * *"]
 binding = "DB"
 database_name = "rodalies"
 database_id = "4b437028-f6b0-476c-8524-c3b95ac048c8"
+
+# Repetidor en directo (src/directo.js): las webs se conectan por WebSocket desde /api/directo.
+[[durable_objects.bindings]]
+name = "DIRECTO"
+class_name = "Directo"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Directo"]

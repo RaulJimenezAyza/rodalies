@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { extraerAvisos, extraerTrenes } from '../colector/src/rodalies.js';
+import { extraerAvisos, extraerPosiciones, extraerTrenes } from '../colector/src/rodalies.js';
 
 test('se queda solo con los trenes de Rodalies y los compacta', () => {
   const feed = {
@@ -39,4 +39,16 @@ test('se queda con los avisos de Rodalies y sus líneas', () => {
   assert.deepEqual(extraerAvisos(feed), [
     { id: 'AVISO_1', inicio: 1791357780, fin: null, lineas: ['R2N', 'R3'], texto: 'Obras entre Vic y Ripoll' },
   ]);
+});
+
+test('posiciones GPS: solo Rodalies, con su estado', () => {
+  const feed = {
+    header: { timestamp: '1792565855' },
+    entity: [
+      { vehicle: { trip: { tripId: '5192X25719R1' }, position: { latitude: 41.3870123, longitude: 2.1701789 }, currentStatus: 'STOPPED_AT', stopId: '78805' } },
+      { vehicle: { trip: { tripId: '1092X23515C1' }, position: { latitude: 40.4, longitude: -3.7 } } }, // Madrid
+      { vehicle: { trip: { tripId: '5192X77410R4' }, position: {} } }, // sin posición
+    ],
+  };
+  assert.deepEqual(extraerPosiciones(feed), { ts: 1792565855, posiciones: [['25719', 'R1', 41.38701, 2.17018, 'P', '78805']] });
 });
