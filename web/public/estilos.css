@@ -719,3 +719,34 @@ button.salida:last-child { border-bottom: 0; }
 .hora-caja { display: grid; justify-items: end; width: 9.5em; line-height: 1.1; }
 .hora-caja .frescura { font-size: 0.6875rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 @media (max-width: 480px) { .hora-caja { display: none; } }
+
+/* Avisos de Renfe y líneas que parece que no circulan */
+.avisos { display: grid; gap: 10px; margin-bottom: 16px; }
+.aviso { padding: 12px 14px; border-radius: var(--r-m); background: color-mix(in srgb, var(--ambar) 16%, var(--fondo)); border: 1.5px solid color-mix(in srgb, var(--ambar) 60%, transparent); }
+.aviso p + p { margin-top: 6px; }
+.aviso-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.aviso-cab .linea-chip { font-size: 0.75rem; min-width: 2.6em; height: 1.6em; }
+.aviso-signo { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--ambar); color: #0d0d0d; font-weight: 900; font-size: 0.875rem; }
+.aviso-fecha { font-size: 0.8125rem; color: var(--tinta-3); }
+.mas-lineas { font-size: 0.8125rem; color: var(--tinta-2); font-weight: 600; }
+.aviso-grave { background: color-mix(in srgb, var(--mal) 12%, var(--fondo)); border-color: color-mix(in srgb, var(--mal) 55%, transparent); }
+.avisos-red { margin-bottom: 28px; }
+.avisos-red .avisos { margin-top: 10px; }
+.sin-avisos { margin-top: 8px; color: var(--tinta-3); }
+.hoja .avisos { margin: 12px 18px 0; }
+.ficha-linea .avisos { margin: 10px 0 0; }
+
+.mapa-cargando { display: grid; place-items: center; height: 100%; min-height: 300px; color: var(--tinta-3); font-weight: 600; }
+
+/* Avisos plegados (Mi viaje y hoja de paradas): una línea que se abre al tocarla */
+.avisos-plegados { margin-bottom: 14px; border-radius: var(--r-m); background: color-mix(in srgb, var(--ambar) 16%, var(--fondo)); border: 1.5px solid color-mix(in srgb, var(--ambar) 60%, transparent); }
+.avisos-plegados.grave { background: color-mix(in srgb, var(--mal) 12%, var(--fondo)); border-color: color-mix(in srgb, var(--mal) 55%, transparent); }
+.avisos-plegados summary { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; min-height: 48px; padding: 8px 14px; cursor: pointer; font-weight: 700; list-style: none; }
+.avisos-plegados summary::-webkit-details-marker { display: none; }
+.avisos-plegados summary::after { content: '▾'; margin-left: auto; color: var(--tinta-2); transition: transform 0.2s; }
+.avisos-plegados[open] summary::after { transform: rotate(180deg); }
+.aviso-lineas { display: flex; gap: 4px; }
+.aviso-lineas .linea-chip { font-size: 0.75rem; min-width: 2.6em; height: 1.6em; }
+.avisos-plegados .avisos { margin: 0; padding: 0 10px 10px; }
+.avisos-plegados .aviso { background: var(--fondo); }
+.hoja .avisos-plegados { margin: 12px 18px 0; }

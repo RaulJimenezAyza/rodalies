@@ -55,9 +55,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="preload" href="fuentes/archivo.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
-    <link rel="stylesheet" href="vendor/maplibre-gl.css" />
     <link rel="stylesheet" href="estilos.css" />
-    <script defer src="vendor/maplibre-gl.js"></script>
     <script type="module" src="app.js"></script>
   </head>
   <body>
@@ -146,6 +144,7 @@
 
       <!-- ============ Cómo va la red ============ -->
       <section class="vista vista-red" id="vista-red" data-vista="red" aria-labelledby="titular" hidden>
+        <div class="avisos-red" id="avisos-red" aria-live="polite"></div>
         <div class="red-cabeza">
           <div class="panel-ahora">
             <h1 class="titular" id="titular">Cargando los trenes…</h1>

@@ -29,9 +29,12 @@ export class Directo extends DurableObject {
   }
 
   /** Lo llama el colector cada minuto con la captura nueva de retrasos. */
-  async nuevosTrenes(ts, trenes) {
+  // `avisos` solo viene cada 2 minutos (cuando el colector los lee); si no viene, se quedan los de antes.
+  async nuevosTrenes(ts, trenes, avisos) {
     const datos = JSON.parse((await this.ctx.storage.get('ultimo')) ?? '{}');
-    await this.guardarYMandar({ ...datos, ts, trenes, posiciones: datos.posiciones ?? [], tsPosiciones: datos.tsPosiciones ?? null });
+    await this.guardarYMandar({
+      ...datos, ts, trenes, posiciones: datos.posiciones ?? [], tsPosiciones: datos.tsPosiciones ?? null, avisos: avisos ?? datos.avisos ?? [],
+    });
   }
 
   /** Cada 20 s, solo mientras haya alguien conectado: posiciones GPS nuevas para todos. */
@@ -60,8 +63,11 @@ export class Directo extends DurableObject {
   async desdeCero() {
     const fila = await this.env.DB.prepare('SELECT ts, trenes FROM capturas ORDER BY ts DESC LIMIT 1').first();
     if (!fila) return null;
+    const avisos = await this.env.DB.prepare("SELECT valor FROM progreso WHERE clave = 'avisos_activos'").first('valor');
     const gps = await leerPosiciones().catch(() => ({ ts: null, posiciones: [] }));
-    const mensaje = JSON.stringify({ ts: fila.ts, trenes: JSON.parse(fila.trenes), posiciones: gps.posiciones, tsPosiciones: gps.ts });
+    const mensaje = JSON.stringify({
+      ts: fila.ts, trenes: JSON.parse(fila.trenes), posiciones: gps.posiciones, tsPosiciones: gps.ts, avisos: JSON.parse(avisos ?? '[]'),
+    });
     await this.ctx.storage.put('ultimo', mensaje);
     return mensaje;
   }

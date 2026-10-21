@@ -21,6 +21,7 @@ const CA = {
   // Carga y errores
   'No hemos podido cargar la web. Puede ser la conexión.': 'No hem pogut carregar el web. Pot ser la connexió.',
   Reintentar: 'Torna-ho a provar',
+  'Cargando el mapa…': 'Carregant el mapa…',
   'No se ha podido cargar el mapa.': "No s'ha pogut carregar el mapa.",
   'No hay horarios de hoy cargados. Vuelve a intentarlo en un rato.': "No hi ha horaris d'avui carregats. Torna-ho a provar d'aquí a una estona.",
 
@@ -136,6 +137,19 @@ const CA = {
   '{p} % de trenes puntuales': '{p} % de trens puntuals',
   '<strong>{a} de {b}</strong> puntuales<br>{m} min de media{c}': '<strong>{a} de {b}</strong> puntuals<br>{m} min de mitjana{c}',
   'Las rayitas marcan el 75 % y el 90 %.': 'Les ratlletes marquen el 75 % i el 90 %.',
+
+  // Avisos y líneas con problemas
+  'Sin datos de Renfe · puede que no circule': 'Sense dades de Renfe · potser no circula',
+  'Puede que no circule': 'Potser no circula',
+  'Puede que la {l} no esté circulando': 'Potser la {l} no està circulant',
+  'Ahora deberían circular {b} trenes de esta línea y Renfe solo da datos de {a}.': "Ara haurien de circular {b} trens d'aquesta línia i Renfe només en dona dades de {a}.",
+  'Aviso de Renfe': 'Avís de Renfe',
+  'Hay un aviso en tus líneas': 'Hi ha un avís a les teves línies',
+  '{n} avisos en tus líneas': '{n} avisos a les teves línies',
+  'Avisos de Renfe ahora': 'Avisos de Renfe ara',
+  'Renfe no tiene avisos activos en Rodalies ahora mismo.': 'Ara mateix Renfe no té avisos actius a Rodalies.',
+  '+{n} líneas': '+{n} línies',
+  'Desde {f}': 'Des de {f}',
 
   // Sugerencias
   'Escribe un poco más, por favor.': 'Escriu una mica més, si us plau.',

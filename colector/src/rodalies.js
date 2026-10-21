@@ -10,6 +10,12 @@
 const VIAJE_RODALIES = /^51\d{2}[A-Z](\d+)([A-Z].*)$/;
 const RUTA_RODALIES = /^51T\d+([A-Z].*)$/;
 
+/** Renfe a veces manda retrasos imposibles (−23 h en trenes del día anterior): esos se dejan sin dato. */
+const retrasoCreible = (r) => {
+  const n = Number(r);
+  return r !== undefined && r !== null && Number.isFinite(n) && n > -1800 && n < 6 * 3600 ? n : null;
+};
+
 /**
  * De trip_updates.json a una captura compacta.
  * @returns {{ ts: number, trenes: Array<[string, string, number|null, string|null, 0|1]> }}
@@ -27,7 +33,7 @@ export function extraerTrenes(feed) {
     trenes.push([
       encaje[1],
       encaje[2],
-      Number.isFinite(Number(retraso)) ? Number(retraso) : null,
+      retrasoCreible(retraso),
       parada?.stopId ?? null,
       viaje.trip.scheduleRelationship === 'CANCELED' ? 1 : 0,
     ]);
@@ -59,7 +65,7 @@ export function extraerPosiciones(feed) {
  * @returns {{ id: string, inicio: number|null, fin: number|null, lineas: string[], texto: string }[]}
  */
 export function extraerAvisos(feed) {
-  const avisos = [];
+  const porId = new Map(); // Renfe a veces repite un aviso en dos entradas con líneas distintas: se juntan
   for (const entidad of feed?.entity ?? []) {
     const aviso = entidad.alert;
     const lineas = new Set();
@@ -68,16 +74,24 @@ export function extraerAvisos(feed) {
       if (encaje) lineas.add(encaje[1]);
     }
     if (!lineas.size) continue;
+    // Renfe manda dos textos y marca los dos como "es": el primero en castellano y el segundo en catalán.
     const traducciones = aviso.descriptionText?.translation ?? [];
-    const texto = (traducciones.find((t) => t.language?.startsWith('es')) ?? traducciones[0])?.text ?? '';
+    const texto = (traducciones[0]?.text ?? '').trim();
+    const textoCa = (traducciones[1]?.text ?? '').trim() || null;
     const periodo = aviso.activePeriod?.[0] ?? {};
-    avisos.push({
+    const previo = porId.get(entidad.id);
+    if (previo) {
+      previo.lineas = [...new Set([...previo.lineas, ...lineas])].sort();
+      continue;
+    }
+    porId.set(entidad.id, {
       id: entidad.id,
       inicio: periodo.start ? Number(periodo.start) : null,
       fin: periodo.end ? Number(periodo.end) : null,
       lineas: [...lineas].sort(),
       texto,
+      textoCa,
     });
   }
-  return avisos;
+  return [...porId.values()];
 }

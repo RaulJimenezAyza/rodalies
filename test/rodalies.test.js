@@ -31,13 +31,14 @@ test('se queda con los avisos de Rodalies y sus líneas', () => {
       { id: 'AVISO_1', alert: {
         activePeriod: [{ start: '1791357780' }],
         informedEntity: [{ routeId: '51T0244R3' }, { routeId: '51T0015R3' }, { routeId: '51T0059R2N' }],
-        descriptionText: { translation: [{ text: 'Obras entre Vic y Ripoll', language: 'es' }] },
+        descriptionText: { translation: [{ text: 'Obras entre Vic y Ripoll ', language: 'es' }, { text: 'Obres entre Vic i Ripoll', language: 'es' }] },
       } },
+      { id: 'AVISO_1', alert: { informedEntity: [{ routeId: '51T0146R1' }], descriptionText: { translation: [{ text: 'Obras entre Vic y Ripoll' }] } } },
       { id: 'AVISO_2', alert: { informedEntity: [{ routeId: '10T0011C4' }], descriptionText: { translation: [{ text: 'Madrid' }] } } },
     ],
   };
   assert.deepEqual(extraerAvisos(feed), [
-    { id: 'AVISO_1', inicio: 1791357780, fin: null, lineas: ['R2N', 'R3'], texto: 'Obras entre Vic y Ripoll' },
+    { id: 'AVISO_1', inicio: 1791357780, fin: null, lineas: ['R1', 'R2N', 'R3'], texto: 'Obras entre Vic y Ripoll', textoCa: 'Obres entre Vic i Ripoll' },
   ]);
 });
 
@@ -51,4 +52,12 @@ test('posiciones GPS: solo Rodalies, con su estado', () => {
     ],
   };
   assert.deepEqual(extraerPosiciones(feed), { ts: 1792565855, posiciones: [['25719', 'R1', 41.38701, 2.17018, 'P', '78805']] });
+});
+
+test('los retrasos imposibles se quedan sin dato', () => {
+  const feed = { header: { timestamp: '1' }, entity: [
+    { tripUpdate: { trip: { tripId: '5192X25472R11' }, delay: -84180, stopTimeUpdate: [{ stopId: '79300' }] } },
+    { tripUpdate: { trip: { tripId: '5192X25473R11' }, delay: -60, stopTimeUpdate: [{ stopId: '79300' }] } },
+  ] };
+  assert.deepEqual(extraerTrenes(feed).trenes.map((t) => t[2]), [null, -60]);
 });

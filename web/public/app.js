@@ -1,6 +1,6 @@
 import {
   MUY_TARDE, TARDE, aHora, buscarEstaciones, estacionMasCercana, estadoDe, momentoDeServicio, proximasSalidas, proximosViajes, recorrido,
-  resumenAhora, textoSobre,
+  resumenAhora, textoSobre, cobertura, lineasDeEstacion, lineasSinDatos,
 } from './tablero.js';
 import { icono } from './iconos.js';
 import { crearMapa } from './mapa.js';
@@ -27,6 +27,8 @@ const estado = {
   puntualidad: new Map(), desde: null, // por línea, de /api/lineas (para la ficha de cada línea)
   fichasAbiertas: new Set(), // fichas de línea con la lista de trenes completa
   hoja: null, // tren abierto en la hoja de paradas: { tren, linea, origen, destino }
+  avisos: [], // avisos de Renfe activos: [{ id, lineas, es, ca, inicio }]
+  cobertura: new Map(), sinDatos: new Set(), // líneas de las que Renfe casi no da datos (puede que no circulen)
 };
 globalThis.__rodalies = estado; // para depurar desde la consola (y para las pruebas con Playwright)
 
@@ -42,7 +44,8 @@ const fechaCorta = (f) => new Intl.DateTimeFormat(locale, { day: 'numeric', mont
 const enCuanto = (min) => (min <= 0 ? t('saliendo ya') : min < 60 ? t('sale en {n} min', { n: min }) : t('sale en {h} h {m} min', { h: Math.floor(min / 60), m: min % 60 }));
 
 /** El estado de un tren dicho en palabras, para que lo entienda cualquiera. */
-function frase(estadoTren, retraso) {
+function frase(estadoTren, retraso, linea) {
+  if (estadoTren === 'sin-datos' && estado.sinDatos.has(linea)) return t('Sin datos de Renfe · puede que no circule');
   return {
     retraso: t('Va {n} minutos tarde', { n: retraso }),
     leve: retraso === 1 ? t('Va 1 minuto tarde') : t('Va {n} minutos tarde', { n: retraso }),
@@ -107,6 +110,10 @@ async function iniciar() {
     const [tren, linea] = b.dataset.paradas.split('|');
     abrirHoja({ tren, linea, origen: null, destino: null });
   });
+  // Que el desplegable de avisos siga abierto (o cerrado) al repintar cada minuto.
+  document.addEventListener('toggle', (e) => {
+    if (e.target.matches?.('.avisos-plegados')) estado.avisosAbiertos = e.target.open;
+  }, true);
   $('resultado').addEventListener('click', (e) => {
     const b = e.target.closest('[data-tren]');
     if (b) abrirHoja({ tren: b.dataset.tren, linea: b.dataset.linea, origen: estado.origen, destino: estado.destino || null });
@@ -149,6 +156,7 @@ function aplicarVivo(datos) {
   estado.ts = datos.ts;
   estado.vivo = new Map(datos.trenes.map((x) => [`${x[0]}|${x[1]}`, x]));
   estado.posiciones = datos.posiciones ?? [];
+  estado.avisos = datos.avisos ?? estado.avisos;
   estado.intentado = true;
 }
 
@@ -231,7 +239,9 @@ async function cargarVivo() {
 }
 
 function pintar() {
+  calcularProblemas();
   pintarViaje();
+  pintarAvisosRed();
   pintarAhora();
   pintarPeores();
   pintarFichas();
@@ -262,8 +272,8 @@ function mostrarVista(vista, { inicial = false } = {}) {
   });
   document.body.dataset.vista = vista;
   if (vista === 'mapa') {
-    asegurarMapa();
-    estado.mapa?.mapa.resize();
+    if (estado.mapa) estado.mapa.mapa.resize();
+    else asegurarMapa();
   }
   if (!inicial) {
     scrollTo({ top: 0 });
@@ -272,12 +282,36 @@ function mostrarVista(vista, { inicial = false } = {}) {
 }
 
 /** El mapa se crea la primera vez que se abre su apartado (así no se carga si no se usa). */
-function asegurarMapa() {
+let cargandoMapa = null;
+/** La librería del mapa (1 MB) solo se descarga la primera vez que se abre el apartado Mapa. */
+function cargarLibreriaMapa() {
+  if (window.maplibregl) return Promise.resolve();
+  cargandoMapa ??= new Promise((listo, fallo) => {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'vendor/maplibre-gl.css';
+    document.head.append(css);
+    const js = document.createElement('script');
+    js.src = 'vendor/maplibre-gl.js';
+    js.onload = listo;
+    js.onerror = fallo;
+    document.head.append(js);
+  });
+  return cargandoMapa;
+}
+
+async function asegurarMapa() {
   if (estado.mapa || !estado.trazados) return;
-  if (!window.maplibregl) {
+  if (!window.maplibregl) $('mapa').innerHTML = `<p class="mapa-cargando">${t('Cargando el mapa…')}</p>`;
+  try {
+    await cargarLibreriaMapa();
+  } catch {
+    cargandoMapa = null; // que se pueda reintentar volviendo a abrir el apartado
     $('mapa').innerHTML = `<p class="mapa-error">${t('No se ha podido cargar el mapa.')}</p>`;
     return;
   }
+  if (estado.mapa) return;
+  $('mapa').innerHTML = '';
   estado.mapa = crearMapa({
     contenedor: 'mapa',
     oscuro: esOscuro(),
@@ -295,12 +329,17 @@ function asegurarMapa() {
   estado.mapa.elegirEstacion(estado.origen, false);
   pintarTrenesEnMapa();
   if (estado.filtro.size) estado.mapa.filtrarLineas(estado.filtro);
+  if (estado.trenPendiente) {
+    estado.mapa.enfocarTren(estado.trenPendiente);
+    estado.trenPendiente = null;
+  }
 }
 
 /** Lleva al mapa y enseña un tren. */
 function irAlTren(clave) {
   mostrarVista('mapa');
-  estado.mapa?.enfocarTren(clave);
+  if (estado.mapa) estado.mapa.enfocarTren(clave);
+  else estado.trenPendiente = clave; // el mapa aún se está descargando: se enseña en cuanto esté
 }
 
 /** "a Estació de França" (destino) y dónde está ahora; nunca se confunde una cosa con la otra. */
@@ -324,7 +363,57 @@ function pintarViaje() {
     pintarTablero(ahora);
     $('nota-viaje').innerHTML = t('En grande, la hora a la que sale de verdad; si va con retraso, la prevista va debajo, tachada. <strong>Toca un tren</strong> para ver a qué hora pasa por cada parada. Pon una estación en «Hasta» para ver directamente a qué hora llegas.');
   }
+  // Avisos de Renfe de las líneas que pasan por tu estación (y por tu destino, si lo hay), encima de todo.
+  const lineas = lineasDeEstacion(estado.horario, estado.origen);
+  if (estado.destino) {
+    const enDestino = lineasDeEstacion(estado.horario, estado.destino);
+    for (const l of lineas) if (!enDestino.has(l)) lineas.delete(l);
+  }
+  $('resultado').insertAdjacentHTML('afterbegin', cajaAvisos(lineas, { plegada: true }));
 }
+
+// ---------- Problemas: avisos de Renfe y líneas de las que casi no llegan datos ----------
+function calcularProblemas() {
+  if (!estado.horario || !estado.ts) return;
+  estado.cobertura = cobertura(estado.horario, estado.vivo, momentoDeServicio().minutos);
+  estado.sinDatos = new Set(lineasSinDatos(estado.cobertura));
+}
+
+const textoAviso = (a) => (idioma === 'ca' && a.ca ? a.ca : a.es);
+const fechaAviso = (s) => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }).format(new Date(s * 1000));
+
+/** Los avisos que tocan alguna de estas líneas, y las líneas que parece que no circulan. '' si no hay nada. */
+// Con `plegada`, una sola línea que se abre al tocarla (para no tapar los trenes en Mi viaje y en la hoja).
+function cajaAvisos(lineas, { plegada = false } = {}) {
+  const avisos = estado.avisos.filter((a) => a.lineas.some((l) => lineas.has(l)));
+  const sinDatos = [...lineas].filter((l) => estado.sinDatos.has(l)).sort();
+  if (!avisos.length && !sinDatos.length) return '';
+  if (plegada) {
+    const afectadas = [...new Set([...sinDatos, ...avisos.flatMap((a) => a.lineas.filter((l) => lineas.has(l)))])].sort();
+    const n = avisos.length + sinDatos.length;
+    return `<details class="avisos-plegados${sinDatos.length ? ' grave' : ''}"${estado.avisosAbiertos ? ' open' : ''}>
+      <summary><span class="aviso-signo" aria-hidden="true">!</span><span>${n === 1 ? t('Hay un aviso en tus líneas') : t('{n} avisos en tus líneas', { n })}</span>
+        <span class="aviso-lineas">${afectadas.slice(0, 5).map(chip).join('')}</span></summary>
+      ${cajaAvisos(lineas)}</details>`;
+  }
+  const chips = (ls) => (ls.length > 6 ? ls.slice(0, 6).map(chip).join('') + `<span class="mas-lineas">${t('+{n} líneas', { n: ls.length - 6 })}</span>` : ls.map(chip).join(''));
+  return `<div class="avisos">${sinDatos.map((l) => {
+    const c = estado.cobertura.get(l);
+    return `<div class="aviso aviso-grave" role="note"><p class="aviso-cab">${chip(l)}<strong>${t('Puede que la {l} no esté circulando', { l })}</strong></p>
+      <p>${t('Ahora deberían circular {b} trenes de esta línea y Renfe solo da datos de {a}.', { a: c.conDatos, b: c.previstos })}</p></div>`;
+  }).join('')}${avisos.map((a) => `<div class="aviso" role="note">
+      <p class="aviso-cab"><span class="aviso-signo" aria-hidden="true">!</span><strong>${t('Aviso de Renfe')}</strong>${chips(a.lineas)}</p>
+      <p>${escapar(textoAviso(a))}</p>
+      ${a.inicio ? `<p class="aviso-fecha">${t('Desde {f}', { f: fechaAviso(a.inicio) })}</p>` : ''}</div>`).join('')}</div>`;
+}
+
+function pintarAvisosRed() {
+  const todas = new Set([...estado.avisos.flatMap((a) => a.lineas), ...estado.sinDatos]);
+  $('avisos-red').innerHTML = `<h2 class="bloque-titulo">${t('Avisos de Renfe ahora')}</h2>` +
+    (todas.size ? cajaAvisos(todas) : `<p class="sin-avisos">${t('Renfe no tiene avisos activos en Rodalies ahora mismo.')}</p>`);
+}
+
+const escapar = (texto) => String(texto ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 function pintarViajes(ahora) {
   const viajes = proximosViajes(estado.horario, estado.origen, estado.destino, ahora, estado.vivo);
@@ -337,14 +426,14 @@ function pintarViajes(ahora) {
     const tarde = v.retraso > 0 && v.estado !== 'cancelado';
     const cancelado = v.estado === 'cancelado';
     return `<li><button type="button" class="viaje${cancelado ? ' cancelado' : ''}" data-tren="${v.tren}" data-linea="${v.linea}"
-        aria-label="${t('Tren {linea} {destino}: sale a las {sale} y llega a las {llega}. {estado}', { linea: v.linea, destino: destinoDe(v.tren, v.linea), sale: aHora(v.saleEstimada), llega: aHora(v.llegaEstimada), estado: frase(v.estado, v.retraso) })}">
+        aria-label="${t('Tren {linea} {destino}: sale a las {sale} y llega a las {llega}. {estado}', { linea: v.linea, destino: destinoDe(v.tren, v.linea), sale: aHora(v.saleEstimada), llega: aHora(v.llegaEstimada), estado: frase(v.estado, v.retraso, v.linea) })}">
       <span class="viaje-linea">${chip(v.linea)}<span>${destinoDe(v.tren, v.linea)}</span></span>
       <span class="viaje-horas">
         <span class="viaje-hora"><small>${t('Sale')}</small><b>${aHora(v.saleEstimada)}</b>${tarde ? `<s>${aHora(v.sale)}</s>` : ''}</span>
         <span class="viaje-flecha" aria-hidden="true">→</span>
         <span class="viaje-hora llega"><small>${t('Llegas')}</small><b>${aHora(v.llegaEstimada)}</b>${tarde ? `<s>${aHora(v.llega)}</s>` : ''}</span>
       </span>
-      <span class="viaje-estado ${claseEstado(v.estado, v.retraso)}">${frase(v.estado, v.retraso)}</span>
+      <span class="viaje-estado ${claseEstado(v.estado, v.retraso)}">${frase(v.estado, v.retraso, v.linea)}</span>
       <span class="viaje-extra">${cancelado ? '' : `${enCuanto(v.saleEstimada - ahora)} · ${t('{n} min de viaje', { n: v.duracion })} · `}<span class="ver-paradas">${t('Ver paradas ›')}</span></span>
     </button></li>`;
   }).join('')}</ol>`;
@@ -372,7 +461,7 @@ function pintarTablero(ahora) {
       leve: `<span class="estado-leve">+${s.retraso} min</span><small>${cuando}</small>`,
       hora: `<span class="estado-hora">${t('A su hora')}</span><small>${cuando}</small>`,
       'sin-salir': `<span class="estado-sin">${t('Aún no ha salido')}</span><small>${cuando}</small>`,
-      'sin-datos': `<span class="estado-sin">${t('Sin seguimiento')}</span><small>${cuando}</small>`,
+      'sin-datos': `<span class="estado-sin">${estado.sinDatos.has(s.linea) ? t('Puede que no circule') : t('Sin seguimiento')}</span><small>${cuando}</small>`,
     }[s.estado];
     const clave = `${s.tren}|${s.linea}`;
     const firma = `${s.estado}|${s.retraso}`;
@@ -380,7 +469,7 @@ function pintarTablero(ahora) {
     const cambia = misma && estado.previo.filas.has(clave) && estado.previo.filas.get(clave) !== firma;
     const clases = ['salida', s.estado === 'cancelado' ? 'cancelado' : '', s.estado === 'retraso' ? 'tarde' : '', cambia ? 'cambia' : ''].filter(Boolean).join(' ');
     return `<button type="button" class="${clases}" style="--color:#${colorDe(s.linea)}" data-tren="${s.tren}" data-linea="${s.linea}"
-        aria-label="${t('{linea} a {destino}, sale a las {hora}. {estado}. Ver paradas', { linea: s.linea, destino: corto(s.destino), hora: aHora(s.estimada), estado: frase(s.estado, s.retraso) })}">
+        aria-label="${t('{linea} a {destino}, sale a las {hora}. {estado}. Ver paradas', { linea: s.linea, destino: corto(s.destino), hora: aHora(s.estimada), estado: frase(s.estado, s.retraso, s.linea) })}">
       <span class="salida-hora">${conRetraso ? aHora(s.estimada) : s.hora}${conRetraso ? `<s>${s.hora}</s>` : ''}</span>
       ${chip(s.linea)}
       <span class="salida-destino"><strong>${corto(s.destino)}</strong><span>${s.estado === 'bus' ? t('Servicio alternativo por carretera') : t('Tren {n} · ver paradas', { n: s.tren })}</span></span>
@@ -431,7 +520,8 @@ function pintarHoja() {
       <div><h2 id="hoja-titulo">Tren ${destinoDe(tren, linea)}</h2><p>Tren ${tren}${e === 'bus' ? t(' · servicio por carretera') : ''}</p></div>
       <button type="button" class="hoja-cerrar" data-cerrar-hoja>${t('Cerrar')}</button>
     </div>
-    <p class="hoja-estado ${claseEstado(e, retraso)}">${frase(e, retraso)}${actual ? `<span>${t('Ahora por <strong>{p}</strong>', { p: corto(actual.parada) })}</span>` : ''}</p>
+    <p class="hoja-estado ${claseEstado(e, retraso)}">${frase(e, retraso, linea)}${actual ? `<span>${t('Ahora por <strong>{p}</strong>', { p: corto(actual.parada) })}</span>` : ''}</p>
+    ${cajaAvisos(new Set([linea]), { plegada: true })}
     ${conGps ? `<button type="button" class="boton-secundario" data-ver-mapa="${clave}">${icono('mapa')}${t('Ver dónde está en el mapa')}</button>` : ''}
     <ol class="paradas">${paradas.map((p, k) => {
       const clases = ['parada', p.pasada ? 'pasada' : '', p.actual ? 'actual' : '', k === iOrigen ? 'origen' : '', k === iDestino ? 'destino' : '',
@@ -702,6 +792,7 @@ function pintarFichas() {
       <div class="ficha-cab">${chip(linea)}<h3>${estado.lineas[linea]?.nombre ?? t('Línea {l}', { l: linea })}</h3>
         <button type="button" class="boton-cerrar" data-cerrar="${linea}" aria-label="${t('Quitar la línea {l}', { l: linea })}" title="${t('Quitar')}">${icono('cerrar')}</button></div>
       <p class="ficha-datos"><span>${t('Ahora: <strong>{n} {trenes}</strong>', { n: enMarcha.length, trenes: enMarcha.length === 1 ? t('tren') : t('trenes') })}${enMarcha.length ? t(', {n} con {t} min o más', { n: tarde, t: TARDE }) : ''}</span>${historico}</p>
+      ${cajaAvisos(new Set([linea]))}
       ${lista ? `<ul class="ficha-trenes">${lista}</ul>` : `<p class="ficha-vacia">${t('No circula ningún tren de esta línea ahora mismo.')}</p>`}
       ${resto > 0 ? `<button type="button" class="enlace ficha-mas" data-mas="${linea}">${t('Ver los otros {n} trenes', { n: resto })}</button>` : ''}
     </article>`;

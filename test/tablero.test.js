@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aHora, aMinutos, buscarEstaciones, estacionMasCercana, momentoDeServicio, proximasSalidas, proximosViajes, recorrido, resumenAhora, textoSobre } from '../web/public/tablero.js';
+import { aHora, aMinutos, buscarEstaciones, cobertura, lineasDeEstacion, lineasSinDatos, estacionMasCercana, momentoDeServicio, proximasSalidas, proximosViajes, recorrido, resumenAhora, textoSobre } from '../web/public/tablero.js';
 
 test('minutos de servicio: después de medianoche siguen contando para el día anterior', () => {
   // 20/10/2026 01:30 en Madrid (23:30 UTC del 19) → servicio del 19, minuto 25 h 30 min.
@@ -95,4 +95,20 @@ test('proximosViajes y proximasSalidas: no ofrecen un tren que ya ha pasado por 
   const vivo = new Map([['1|R1', ['1', 'R1', 600, 'C', 0]]]); // va por C: ya pasó por B
   assert.equal(proximosViajes(DIA, 'B', 'D', 10 * 60 + 5, vivo).length, 0);
   assert.equal(proximasSalidas(DIA, 'B', 10 * 60 + 5, vivo).some((s) => s.tren === '1'), false);
+});
+
+test('cobertura: trenes que deberían circular ahora frente a los que dan datos', () => {
+  const horario = [
+    ['1', 'R8', [['A', '10:00'], ['B', '11:00']]],
+    ['2', 'R8', [['A', '10:10'], ['B', '11:10']]],
+    ['3', 'R8', [['A', '10:20'], ['B', '11:20']]],
+    ['4', 'R1', [['A', '10:00'], ['C', '11:00']]],
+    ['5', 'R1', [['A', '12:00'], ['C', '13:00']]], // aún no ha salido
+    ['6', 'R3', [['A', '10:00'], ['D', '11:00']], 1], // autobús: no cuenta
+  ];
+  const vivo = new Map([['4|R1', ['4', 'R1', 0, 'A', 0]]]);
+  const c = cobertura(horario, vivo, 10 * 60 + 30);
+  assert.deepEqual(Object.fromEntries(c), { R8: { previstos: 3, conDatos: 0 }, R1: { previstos: 1, conDatos: 1 } });
+  assert.deepEqual(lineasSinDatos(c), ['R8']);
+  assert.deepEqual([...lineasDeEstacion(horario, 'C')], ['R1']);
 });

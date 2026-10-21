@@ -1,5 +1,5 @@
 // Colector de Rodalies: cada minuto guarda en D1 el estado de todos los trenes de Rodalies (retraso y
-// próxima parada) a partir del tiempo real de Renfe. Cada 10 minutos guarda también los avisos nuevos, y
+// próxima parada) a partir del tiempo real de Renfe. Cada 2 minutos lee también los avisos de Renfe, y
 // cada hora (minuto 5) suma las capturas nuevas al resumen por tren y día y borra el crudo de hace 8 días.
 //
 // Es lo primero que se pone en marcha porque el valor del proyecto es el histórico: Renfe solo da el
@@ -48,22 +48,33 @@ async function capturar(env, cuando) {
   if (!Number.isFinite(ts) || !trenes.length) throw new Error(`Feed de trenes vacío o sin marca de tiempo (${trenes.length} trenes)`);
   // Si Renfe no ha actualizado el feed desde la última vez, la marca de tiempo es la misma y no se duplica.
   await env.DB.prepare('INSERT OR IGNORE INTO capturas (ts, trenes) VALUES (?, ?)').bind(ts, JSON.stringify(trenes)).run();
-  // Y se manda en directo a todas las webs abiertas (si falla, la web sigue pudiendo preguntar por /api/vivo).
-  try {
-    await env.DIRECTO.get(env.DIRECTO.idFromName('rodalies')).nuevosTrenes(ts, trenes);
-  } catch (e) {
-    console.warn('Directo:', e.message);
+  // Avisos de Renfe cada 2 minutos: los nuevos se guardan para siempre y la lista de los activos ahora se
+  // guarda aparte (para /api/vivo) y va en directo a las webs.
+  let avisosActivos;
+  if (cuando.getUTCMinutes() % 2 === 0) {
+    try {
+      const avisos = extraerAvisos(await leer(AVISOS));
+      const ahora = Math.round(Date.now() / 1000);
+      avisosActivos = avisos.filter((a) => !a.fin || a.fin > ahora)
+        .map(({ id, lineas, texto, textoCa, inicio }) => ({ id, lineas, es: texto, ca: textoCa, inicio }));
+      await env.DB.batch([
+        ...avisos.map((a) =>
+          env.DB.prepare('INSERT OR IGNORE INTO avisos (id, visto, inicio, fin, lineas, texto) VALUES (?, ?, ?, ?, ?, ?)')
+            .bind(a.id, ahora, a.inicio, a.fin, a.lineas.join(','), a.texto)),
+        env.DB.prepare("INSERT INTO progreso (clave, valor) VALUES ('avisos_activos', ?) ON CONFLICT (clave) DO UPDATE SET valor = excluded.valor")
+          .bind(JSON.stringify(avisosActivos)),
+      ]);
+    } catch (e) {
+      console.warn('Avisos:', e.message); // sin avisos nuevos esta vez; se queda la lista anterior
+      avisosActivos = undefined;
+    }
   }
 
-  if (cuando.getUTCMinutes() % 10 === 0) {
-    const avisos = extraerAvisos(await leer(AVISOS));
-    const ahora = Math.round(Date.now() / 1000);
-    if (avisos.length) {
-      await env.DB.batch(avisos.map((a) =>
-        env.DB.prepare('INSERT OR IGNORE INTO avisos (id, visto, inicio, fin, lineas, texto) VALUES (?, ?, ?, ?, ?, ?)')
-          .bind(a.id, ahora, a.inicio, a.fin, a.lineas.join(','), a.texto)
-      ));
-    }
+  // Y todo a las webs abiertas en directo (si falla, la web sigue pudiendo preguntar por /api/vivo).
+  try {
+    await env.DIRECTO.get(env.DIRECTO.idFromName('rodalies')).nuevosTrenes(ts, trenes, avisosActivos);
+  } catch (e) {
+    console.warn('Directo:', e.message);
   }
 }
 

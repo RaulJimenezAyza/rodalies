@@ -107,6 +107,33 @@ export function recorrido(viaje, vivo) {
   });
 }
 
+/**
+ * Por línea: cuántos trenes deberían estar circulando ahora según el horario (sin contar autobuses) y de
+ * cuántos da datos Renfe. Si faltan casi todos, lo más probable es que no estén circulando.
+ * @returns {Map<string, { previstos: number, conDatos: number }>}
+ */
+export function cobertura(horario, vivo, ahora) {
+  const porLinea = new Map();
+  for (const [tren, linea, paradas, bus] of horario) {
+    if (bus || aMinutos(paradas[0][1]) > ahora || aMinutos(paradas.at(-1)[1]) < ahora) continue;
+    const c = porLinea.get(linea) ?? { previstos: 0, conDatos: 0 };
+    c.previstos++;
+    if (vivo.has(`${tren}|${linea}`)) c.conDatos++;
+    porLinea.set(linea, c);
+  }
+  return porLinea;
+}
+
+/** Líneas en las que, según la cobertura, casi ningún tren que debería circular da señales (al menos 3 previstos). */
+export const lineasSinDatos = (cob) => [...cob].filter(([, c]) => c.previstos >= 3 && c.conDatos / c.previstos < 0.3).map(([l]) => l).sort();
+
+/** Líneas que paran en una estación hoy (para saber qué avisos le interesan a quien sale de ahí). */
+export function lineasDeEstacion(horario, parada) {
+  const lineas = new Set();
+  for (const [, linea, paradas] of horario) if (paradas.some(([p]) => p === parada)) lineas.add(linea);
+  return lineas;
+}
+
 /** Resumen de la última captura: cuántos circulan, cuántos con retraso (≥ umbral) y el peor. */
 export function resumenAhora(trenes, umbral = 300) {
   const enMarcha = trenes.filter((t) => !t[4] && t[2] !== null);
