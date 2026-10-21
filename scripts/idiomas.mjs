@@ -9,7 +9,8 @@ const DESTINO = new URL('../web/public/ca/index.html', import.meta.url);
 
 // [castellano, catalán]: cada trozo tiene que aparecer en index.html (si no, falla y avisa).
 const CAMBIOS = [
-  ['<html lang="es">', '<html lang="ca">'],
+  ['<html lang="es"', '<html lang="ca"'],
+  ['<p class="pie-enlaces"><a href="/estaciones/">Todas las estaciones</a></p>', '<p class="pie-enlaces"><a href="/ca/estacions/">Totes les estacions</a></p>'],
   ['<title>Rodalies al minuto · ¿Va tarde tu tren? Retrasos en directo</title>', '<title>Rodalies al minut · Va tard el teu tren? Retards en directe</title>'],
   ['content="¿Va tarde tu tren de Rodalies? Pon de dónde a dónde vas y mira a qué hora sale y llega de verdad, con el retraso en directo. Mapa de todos los trenes y puntualidad de cada línea (R1, R2, R3, R4…)."',
     'content="Va tard el teu tren de Rodalies? Posa d\'on a on vas i mira a quina hora surt i arriba de veritat, amb el retard en directe. Mapa de tots els trens i puntualitat de cada línia (R1, R2, R3, R4…)."'],

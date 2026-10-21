@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-alt-es="/" data-alt-ca="/ca/">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -30,8 +30,10 @@
         const elegido = localStorage.getItem('idioma');
         const enCa = location.pathname.startsWith('/ca');
         const quiere = elegido || ((navigator.language || '').toLowerCase().startsWith('ca') ? 'ca' : '');
-        if (quiere === 'ca' && !enCa) location.replace('/ca/' + location.search);
-        else if (elegido === 'es' && enCa) location.replace('/' + location.search);
+        // La misma página en el otro idioma (en las páginas de estación, su estación).
+        const otra = (l) => document.documentElement.dataset[l === 'ca' ? 'altCa' : 'altEs'];
+        if (quiere === 'ca' && !enCa) location.replace(otra('ca') + location.search);
+        else if (elegido === 'es' && enCa) location.replace(otra('es') + location.search);
       } catch {}
     </script>
     <link rel="canonical" href="https://rodalies.reloda.es/" />
@@ -207,6 +209,7 @@
         cuentas ni cookies (salvo las de Ko-fi si abres lo del café): solo recuerda tu estación en este navegador. Es un proyecto personal y de código abierto, en
         <a href="https://github.com/RaulJimenezAyza/rodalies" rel="noopener">GitHub</a>.
       </p>
+      <p class="pie-enlaces"><a href="/estaciones/">Todas las estaciones</a></p>
     </footer>
   </body>
 </html>

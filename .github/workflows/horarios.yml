@@ -39,6 +39,9 @@ jobs:
       - name: Página en catalán
         run: npm run idiomas
 
+      - name: Páginas de estación, índice y sitemap
+        run: npm run estaciones
+
       - name: Publicar la web
         working-directory: web
         env:

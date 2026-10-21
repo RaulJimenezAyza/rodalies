@@ -5,3 +5,5 @@ node_modules/
 # Se generan con npm run horarios (desde el GTFS de Renfe) antes de publicar la web
 web/public/datos/
 web/public/ca/
+web/public/estacion/
+web/public/estaciones/

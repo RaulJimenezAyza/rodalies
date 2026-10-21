@@ -15,10 +15,12 @@ const VIEJO = 150; // segundos: a partir de ahí se avisa de que los datos no so
 const VISTAS = ['viaje', 'mapa', 'red'];
 const $ = (id) => document.getElementById(id);
 const parametros = new URLSearchParams(location.search);
+// En las páginas de estación (/estacion/mataro/…), la estación de la página manda sobre la última que usaste.
+const ESTACION_PAGINA = document.documentElement.dataset.estacion || null;
 const estado = {
   paradas: {}, lineas: {}, trazados: null, horario: null, dia: null, destinos: new Map(), viajes: new Map(),
   vivo: new Map(), posiciones: [], ts: 0,
-  origen: parametros.get('desde') || parametros.get('estacion') || leer('estacion') || '71801',
+  origen: parametros.get('desde') || parametros.get('estacion') || ESTACION_PAGINA || leer('estacion') || '71801',
   destino: parametros.get('hasta') || leer('destino') || '',
   propia: Boolean(parametros.get('desde') || parametros.get('estacion') || leer('estacion')), // elegida por la persona o de ejemplo
   vista: VISTAS.includes(parametros.get('vista')) ? parametros.get('vista') : 'viaje',
@@ -114,6 +116,13 @@ async function iniciar() {
   document.addEventListener('toggle', (e) => {
     if (e.target.matches?.('.avisos-plegados')) estado.avisosAbiertos = e.target.open;
   }, true);
+  document.querySelector('.destinos-rapidos')?.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-hasta]');
+    if (!a) return;
+    e.preventDefault();
+    elegirDestino(a.dataset.hasta);
+    $('resultado').scrollIntoView({ behavior: quieto() ? 'auto' : 'smooth', block: 'start' });
+  });
   $('resultado').addEventListener('click', (e) => {
     const b = e.target.closest('[data-tren]');
     if (b) abrirHoja({ tren: b.dataset.tren, linea: b.dataset.linea, origen: estado.origen, destino: estado.destino || null });
@@ -828,10 +837,10 @@ function despuesDeElegir() {
 function actualizarUrl(empujar = false) {
   const p = new URLSearchParams();
   if (estado.vista !== 'viaje') p.set('vista', estado.vista);
-  if (estado.origen !== '71801') p.set('desde', estado.origen);
+  if (estado.origen !== (ESTACION_PAGINA ?? '71801')) p.set('desde', estado.origen);
   if (estado.destino) p.set('hasta', estado.destino);
   if (estado.filtro.size === 1) p.set('linea', [...estado.filtro][0]);
-  const url = p.size ? `?${p}` : location.pathname;
+  const url = location.pathname + (p.size ? `?${p}` : ''); // ruta completa: con <base href="/">, "?…" iría a la portada
   if (empujar) history.pushState(null, '', url);
   else history.replaceState(null, '', url);
 }
@@ -949,6 +958,10 @@ async function cargarLineas() {
   estado.puntualidad = new Map(lineas.map((l) => [l.linea, l]));
   estado.desde = lineas.reduce((a, l) => (!a || l.primera_fecha < a ? l.primera_fecha : a), null);
   pintarFichas();
+  document.querySelectorAll('.estacion-puntualidad[data-linea]').forEach((span) => {
+    const l = estado.puntualidad.get(span.dataset.linea);
+    if (l) span.textContent = t('{p} % puntuales', { p: numero((l.puntuales / l.con_dato) * 100) });
+  });
   const desde = estado.desde;
   $('lineas-sub').textContent = desde
     ? t('Porcentaje de trenes que llegaron con menos de {t} minutos de retraso desde el {f}{extra}. Se actualiza cada hora.', {

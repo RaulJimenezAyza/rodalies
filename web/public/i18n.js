@@ -135,6 +135,7 @@ const CA = {
     ', el dia que aquest web va començar a desar dades. Amb tan pocs dies, els percentatges encara poden canviar molt',
   'Todavía no hay datos suficientes: el resumen se calcula cada hora.': 'Encara no hi ha prou dades: el resum es calcula cada hora.',
   '{p} % de trenes puntuales': '{p} % de trens puntuals',
+  '{p} % puntuales': '{p} % puntuals',
   '<strong>{a} de {b}</strong> puntuales<br>{m} min de media{c}': '<strong>{a} de {b}</strong> puntuals<br>{m} min de mitjana{c}',
   'Las rayitas marcan el 75 % y el 90 %.': 'Les ratlletes marquen el 75 % i el 90 %.',
 
