@@ -80,8 +80,11 @@
           <a href="/" hreflang="es" lang="es" data-idioma="es" aria-current="true" title="Castellano">ES</a>
           <a href="/ca/" hreflang="ca" lang="ca" data-idioma="ca" title="Català">CA</a>
         </div>
-        <span class="frescura" id="frescura"></span>
-        <time class="reloj" id="reloj" aria-label="Hora"></time>
+        <!-- Reloj y antigüedad de los datos en una caja de ancho fijo: al cambiar el texto no se mueve nada -->
+        <div class="hora-caja">
+          <time class="reloj" id="reloj" aria-label="Hora"></time>
+          <span class="frescura" id="frescura"></span>
+        </div>
         <button type="button" class="boton-tema" id="boton-tema"></button>
       </div>
     </header>

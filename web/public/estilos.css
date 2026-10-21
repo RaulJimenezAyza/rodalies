@@ -714,3 +714,8 @@ button.salida:last-child { border-bottom: 0; }
   .reloj { font-size: 1.25rem; }
 }
 @media (max-width: 480px) { .reloj { display: none; } .cabecera { flex-wrap: nowrap; } .marca { font-size: 1rem; gap: 8px; } }
+
+/* Reloj con la antigüedad de los datos debajo, en ancho fijo (el texto cambia cada segundo) */
+.hora-caja { display: grid; justify-items: end; width: 9.5em; line-height: 1.1; }
+.hora-caja .frescura { font-size: 0.6875rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+@media (max-width: 480px) { .hora-caja { display: none; } }
