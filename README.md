@@ -1,82 +1,89 @@
-# Observatorio de puntualidad de Rodalies
+# Rodalies al minuto
 
-Guardar el tiempo real de Renfe minuto a minuto para tener el histórico de retrasos que nadie publica:
-qué línea, tramo y hora fallan más, "¿llegará tarde mi tren?" y ayuda para reclamar.
-Destino: **https://rodalies.reloda.es**.
+**Live delays for every Rodalies (Barcelona commuter rail) train — and when you'll actually arrive.**
+→ **https://rodalies.reloda.es** · [en català](https://rodalies.reloda.es/ca/)
 
-Estado: **el colector funciona desde el 20/10/2026** y guarda cada minuto el estado de todos los trenes
-de Rodalies. La web muestra las salidas de cada estación con su retraso real y la puntualidad por línea.
+Renfe publishes "+8 min" and leaves the maths to you, has no history of how punctual each train really is, and
+during disruptions trains silently vanish from its feed. Rodalies al minuto turns Renfe's raw open data into
+answers people need on the platform: *my train, when it leaves, when I get there, and whether something is wrong*.
 
-## Datos
+<p align="center">
+  <img src="docs/mi-viaje.png" alt="My trip: from Sants to Mataró, each train with its real departure and arrival time" width="260" />
+  <img src="docs/paradas.png" alt="A train's stops with the estimated time at each one, ADIF-style" width="260" />
+</p>
+<p align="center"><img src="docs/mapa.png" alt="Live map with every train, coloured by line, ringed by delay" width="800" /></p>
 
-Feeds GTFS-RT públicos de Renfe, en JSON y sin registro (comprobado el 20/10/2026):
+## What it does
 
-| Feed | URL | Tamaño |
-|---|---|---|
-| Retrasos por viaje | `https://gtfsrt.renfe.com/trip_updates.json` | ~156 KB, ~380 viajes de todas las redes |
-| Posiciones de trenes | `https://gtfsrt.renfe.com/vehicle_positions.json` | ~143 KB |
-| Avisos | `https://gtfsrt.renfe.com/alerts.json` | ~100 KB |
+- **My trip** — pick where you're going and see each direct train with its **real** departure and arrival time
+  (timetable + current delay), stated in plain words ("8 minutes late").
+- **Stop-by-stop view** — tap any train: estimated time at every station, where it is now, where you get on and off.
+- **Live map** — every train on its line, sliding between GPS positions; the ones running 10+ minutes late pulse.
+- **Problems surfaced, not hidden** — Renfe's alerts (in Spanish or Catalan), bus replacement services, and a
+  detector for lines whose trains have disappeared from the feed ("the R8 may not be running: 6 trains should
+  be out and Renfe reports 0").
+- **Punctuality history Renfe doesn't publish** — a collector stores the state of every train every minute;
+  hourly roll-ups give on-time rates per line.
+- **For everyone** — Spanish and Catalan, light/dark, installable PWA, works offline with the last data, big
+  type and plain language in the main view, keyboard and screen-reader friendly.
+- **Found on Google** — a static page per station in both languages (416 pages) with its lines, frequent
+  destinations and nearby stations, plus hreflang, structured data and a generated sitemap.
 
-Traen **todas las redes de Cercanías** juntas, pero el identificador ya dice cuál es cuál:
-
-- Viaje `5191M28289R2S` → red `5191` (Rodalies de Catalunya), tren `28289`, línea `R2S`.
-- Ruta en los avisos `51T0244R3` → Rodalies (`51T`), línea `R3`.
-
-Con eso basta para filtrar Rodalies sin el GTFS estático (que hará falta más adelante para los horarios
-previstos y los nombres de las paradas).
-
-## Arquitectura (0 €, sin tarjeta)
+## How it works — €0/month on Cloudflare's free tier
 
 ```
-Cada minuto (cron)                       D1 "rodalies"
-Worker rodalies-colector  ─────────────> capturas  1 fila por minuto (se borran a los 8 días)
-  · lee trip_updates.json                avisos    1 fila por aviso de Rodalies
-  · cada 10 min, alerts.json             resumen   1 fila por tren y día (se queda)
-  · cada hora, suma las capturas
-    nuevas al resumen
-                                                     ▲
-Web rodalies.reloda.es (Cloudflare Pages)            │
-  public/            estática + horarios en datos/   │
-  functions/api/     /api/vivo (última captura + GPS de Renfe) ──┤
-                     /api/lineas (puntualidad) ──────────────────┘
+ Renfe GTFS-RT (JSON, public)                     Cloudflare
+ ─────────────────────────────                    ───────────────────────────────────────────────────────────
+ trip_updates.json  ──every minute──▶  Worker  rodalies-colector (cron)
+ alerts.json        ──every 2 min──▶     ├─ D1: capturas (1 row/min, kept 8 days) · resumen (1 row/train/day)
+                                         ├─ D1: active alerts · suggestions
+                                         └─ RPC ─▶ Durable Object «Directo» ──WebSocket push──▶ every open page
+ vehicle_positions.json ◀──every 20 s, only while someone is watching──┘   (one connection per visit)
+
+ GTFS (static, weekly) ──GitHub Action──▶ timetables per day, line shapes, 416 station pages ──▶ Pages (static)
+                                                                        Pages Functions: /api/vivo · /api/lineas
 ```
 
-- **Colector** (`colector/`): cada captura guarda `[tren, línea, retraso_s, próxima_parada, cancelado]`
-  de cada tren: unos **2,8 KB por minuto**. Si Renfe no ha actualizado el feed, no se duplica nada.
-- **Resumen por hora** en lugar de una compactación nocturna: recorrer un día entero con SQL leería
-  ~2 millones de filas (casi la mitad del cupo diario gratuito de D1). Sumando cada hora las ~60
-  capturas nuevas cuesta ~60 lecturas y ~120 escrituras, y el resumen está siempre al día.
-- **Horarios** (`npm run horarios`): el GTFS de Renfe se convierte en archivos estáticos por día
-  (`web/public/datos/horarios/AAAA-MM-DD.json`, ~350 KB, ~60 KB comprimido). No gastan peticiones ni D1.
-  El GTFS trae unas 4 semanas, así que **cada lunes una tarea de GitHub Actions** (`.github/workflows/horarios.yml`)
-  los regenera y vuelve a publicar la web (necesita los secretos `CLOUDFLARE_API_TOKEN` y `CLOUDFLARE_ACCOUNT_ID`).
-  El viaje de hoy en el GTFS se llama igual que en el tiempo real (`5191M28289R2S`).
-- **Mapa**: MapLibre con el mapa base gratuito de OpenFreeMap (sin clave). Los trazados salen del GTFS
-  (`datos/trazados.json`, ~57 KB) y las posiciones, del feed `vehicle_positions.json` de Renfe a través de
-  `/api/vivo`. Los trenes se deslizan entre posiciones y los que llevan +10 min laten.
-- **Peticiones de Workers**: el colector gasta 1.440 al día de las 100.000 gratuitas. La web, ~2 al abrirla
-  y 2 por minuto mientras está abierta **y a la vista** (con la pestaña en segundo plano no pide nada).
-  La caché de Cloudflare ahorra consultas a Renfe y a D1, pero cada visita sigue contando como petición.
-- **D1** en lugar de R2, porque R2 pide tarjeta para activarse.
+Design choices worth noting:
 
-Comprobar el colector: `https://rodalies-colector.dimelo-game.workers.dev/estado`.
+- **Push instead of polling.** Each open page holds one hibernatable WebSocket to a single Durable Object, which
+  broadcasts new delays every minute and GPS positions every 20 s. A visit costs one request instead of two per
+  minute — the free 100k requests/day go from ~800 to 50,000+ user-hours. If WebSockets fail, the page falls
+  back to polling once a minute.
+- **Hourly roll-ups, not nightly batches.** Summing a whole day in SQL would read ~2M rows (half of D1's free
+  daily quota); adding the ~60 new snapshots every hour costs ~60 reads and ~120 writes.
+- **Timetables as static files.** The GTFS is turned into one JSON per service day (~60 KB gzipped), so the
+  "when do I arrive" maths runs in the browser and costs no requests.
+- **Renfe quirks handled:** trip ids change prefix every service day (`5191M…`, `5192X…`), alerts label the
+  Catalan text as `"es"`, cancelled trains are never marked as such (they just disappear), and some delays are
+  impossible (−23 h) — all covered by tests.
+- **No framework, no build step** for the site: plain ES modules, MapLibre (loaded only when the map is opened),
+  and `node --test` for the logic.
 
-## Uso
+## Repository
+
+| Path | What's there |
+|---|---|
+| `colector/` | Worker with cron: captures, alerts, hourly roll-up, and the `Directo` Durable Object |
+| `web/public/` | The site: `app.js` (UI), `tablero.js` (pure trip/departure logic), `mapa.js`, `i18n.js` |
+| `web/functions/api/` | Pages Functions: `/api/vivo`, `/api/lineas`, `/api/directo` (WebSocket), `/api/sugerencia` |
+| `scripts/` | `horarios.mjs` (GTFS → static JSON), `idiomas.mjs` (Catalan page), `estaciones.mjs` (station pages + sitemap), `local.mjs` (local server with live data) |
+| `test/` | Tests for the parsers, trip maths, coverage detector and translations |
+| `.github/workflows/horarios.yml` | Every Monday: fresh timetables, pages and deploy |
 
 ```bash
 npm install
 npm test
-npm run horarios               # regenera los horarios desde el GTFS de Renfe
-npm run desplegar:web          # regenera los horarios y publica la web (rodalies-reloda)
-npm run desplegar:colector     # publica el colector
-npx wrangler d1 execute rodalies --remote --file colector/schema.sql    # crea las tablas (una vez)
+npm run local                 # http://localhost:8790 with production data
+npm run desplegar:web         # timetables + Catalan + station pages, then deploy
+npm run desplegar:colector    # deploy the collector and the Durable Object
+npm run sugerencias           # read what people sent through the suggestion box
 ```
 
-## Plan
+Collector health: `https://rodalies-colector.dimelo-game.workers.dev/estado`.
 
-1. [x] Colector cada minuto en D1
-2. [x] Horarios del GTFS estático como archivos de la web
-3. [x] Resumen por tren y día (cada hora) y borrado del crudo a los 8 días
-4. [x] Web en rodalies.reloda.es: panel de salidas de tu estación y puntualidad por línea
-5. [ ] "Mi tren": historial de un tren concreto (¿suele llegar tarde el de las 8:12?)
-6. [ ] Mapa en directo, predicción por tramo, ayuda para reclamar
+## Data and licence
+
+Data: **Renfe Operadora** open data (real time and timetables), used under its reuse licence. Map: OpenFreeMap,
+© OpenMapTiles, © OpenStreetMap contributors. Unofficial project, not affiliated with Renfe or Rodalies de
+Catalunya.
