@@ -1,5 +1,6 @@
 import {
-  MUY_TARDE, TARDE, aHora, buscarEstaciones, estacionMasCercana, momentoDeServicio, proximasSalidas, resumenAhora, textoSobre,
+  MUY_TARDE, TARDE, aHora, buscarEstaciones, estacionMasCercana, estadoDe, momentoDeServicio, proximasSalidas, proximosViajes, recorrido,
+  resumenAhora, textoSobre,
 } from './tablero.js';
 import { icono } from './iconos.js';
 import { crearMapa } from './mapa.js';
@@ -9,16 +10,21 @@ const ATAJOS = ['71801', '71802', '78805', '79009', '79400']; // Sants, Pg. de G
 const UMBRAL = TARDE * 60; // segundos: a partir de ahí un tren va «tarde» en toda la web
 const CADA = 30_000; // cada cuánto se pide /api/vivo (solo con la pestaña visible)
 const VIEJO = 150; // segundos: a partir de ahí se avisa de que los datos no son de ahora
+const VISTAS = ['viaje', 'mapa', 'red'];
 const $ = (id) => document.getElementById(id);
 const parametros = new URLSearchParams(location.search);
 const estado = {
-  paradas: {}, lineas: {}, trazados: null, horario: null, dia: null, destinos: new Map(),
-  vivo: new Map(), posiciones: [], ts: 0, estacion: parametros.get('estacion') || leer('estacion') || '71801',
-  propia: Boolean(parametros.get('estacion') || leer('estacion')), // si la ha elegido la persona o es la de ejemplo
+  paradas: {}, lineas: {}, trazados: null, horario: null, dia: null, destinos: new Map(), viajes: new Map(),
+  vivo: new Map(), posiciones: [], ts: 0,
+  origen: parametros.get('desde') || parametros.get('estacion') || leer('estacion') || '71801',
+  destino: parametros.get('hasta') || leer('destino') || '',
+  propia: Boolean(parametros.get('desde') || parametros.get('estacion') || leer('estacion')), // elegida por la persona o de ejemplo
+  vista: VISTAS.includes(parametros.get('vista')) ? parametros.get('vista') : 'viaje',
   filtro: new Set(), mapa: null,
-  previo: { estacion: null, filas: new Map() }, // lo que mostraba el panel, para girar solo lo que cambia
+  previo: { clave: null, filas: new Map() }, // lo que mostraba el panel, para girar solo lo que cambia
   puntualidad: new Map(), desde: null, // por línea, de /api/lineas (para la ficha de cada línea)
   fichasAbiertas: new Set(), // fichas de línea con la lista de trenes completa
+  hoja: null, // tren abierto en la hoja de paradas: { tren, linea, origen, destino }
 };
 globalThis.__rodalies = estado; // para depurar desde la consola (y para las pruebas con Playwright)
 
@@ -31,6 +37,21 @@ const chip = (linea) => `<span class="linea-chip" style="background:#${colorDe(l
 const esOscuro = () => (document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
 const quieto = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const fechaCorta = (f) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${f}T12:00:00Z`));
+const enCuanto = (min) => (min <= 0 ? 'saliendo ya' : min < 60 ? `sale en ${min} min` : `sale en ${Math.floor(min / 60)} h ${min % 60} min`);
+
+/** El estado de un tren dicho en palabras, para que lo entienda cualquiera. */
+function frase(estadoTren, retraso) {
+  return {
+    retraso: `Va ${retraso} minutos tarde`,
+    leve: `Va ${retraso} ${retraso === 1 ? 'minuto' : 'minutos'} tarde`,
+    hora: 'Va a su hora',
+    'sin-salir': 'Aún no ha salido · hora prevista',
+    'sin-datos': 'Renfe no da su posición · hora prevista',
+    bus: 'Autobús por obras · hora prevista',
+    cancelado: 'Cancelado',
+  }[estadoTren];
+}
+const claseEstado = (e, retraso) => ({ cancelado: 'estado-cancelado', retraso: retraso >= MUY_TARDE ? 'estado-cancelado' : 'estado-retraso', leve: 'estado-leve', hora: 'estado-hora', bus: 'estado-bus' }[e] ?? 'estado-sin');
 
 function leer(clave) {
   try { return localStorage.getItem(clave); } catch { return null; }
@@ -49,45 +70,48 @@ async function iniciar() {
   prepararTema();
   prepararReloj();
   prepararCafe();
+  prepararVistas();
   $('buscador-icono').innerHTML = icono('buscar');
+  $('buscador-icono-2').innerHTML = icono('buscar');
   try {
     [estado.paradas, estado.lineas, estado.trazados] = await Promise.all([
       pedir('datos/paradas.json'), pedir('datos/lineas.json'), pedir('datos/trazados.json'),
     ]);
   } catch {
     // Sin los datos básicos no hay web: se dice claramente y se ofrece reintentar.
-    $('titular').textContent = 'No hemos podido cargar la web';
-    $('ahora-texto').innerHTML = 'Puede ser la conexión. <button type="button" class="boton-reintentar" id="reintentar">Reintentar</button>';
+    $('resultado').innerHTML = '<p class="vacio-grande">No hemos podido cargar la web. Puede ser la conexión. <button type="button" class="boton-reintentar" id="reintentar">Reintentar</button></p>';
     $('reintentar').addEventListener('click', () => location.reload());
     return;
   }
-  if (!estado.paradas[estado.estacion]) estado.estacion = '71801';
+  if (!estado.paradas[estado.origen]) estado.origen = '71801';
+  if (estado.destino && (!estado.paradas[estado.destino] || estado.destino === estado.origen)) estado.destino = '';
   const linea = parametros.get('linea');
   if (linea && estado.lineas[linea]) estado.filtro.add(linea);
 
-  prepararBuscador();
+  prepararBuscadores();
   prepararFiltro();
   prepararRed();
-  // El enlace de saltar lleva también el foco (no solo la vista) al buscador.
-  document.querySelector('.saltar').addEventListener('click', (e) => {
-    e.preventDefault();
-    $('salidas').scrollIntoView({ block: 'start' });
-    $('estacion').focus({ preventScroll: true });
-  });
+  prepararHoja();
   $('peores').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-clave]');
-    if (b && estado.mapa?.enfocarTren(b.dataset.clave)) verMapa();
+    if (b) irAlTren(b.dataset.clave);
   });
-  $('mi-estacion').addEventListener('click', (e) => {
-    if (!e.target.closest('[data-ir-salidas]')) return;
-    $('salidas').scrollIntoView({ behavior: quieto() ? 'auto' : 'smooth', block: 'start' });
-    if (!estado.propia) $('estacion').focus({ preventScroll: true });
+  // Desde la burbuja de un tren en el mapa
+  $('mapa').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-paradas]');
+    if (!b) return;
+    const [tren, linea] = b.dataset.paradas.split('|');
+    abrirHoja({ tren, linea, origen: null, destino: null });
+  });
+  $('resultado').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tren]');
+    if (b) abrirHoja({ tren: b.dataset.tren, linea: b.dataset.linea, origen: estado.origen, destino: estado.destino || null });
   });
   addEventListener('online', () => { pintarAviso(); refrescar(); });
   addEventListener('offline', pintarAviso);
 
-  // El mapa y el horario no esperan a los datos en directo: si Renfe tarda, se ve todo lo demás.
-  prepararMapa();
+  mostrarVista(estado.vista, { inicial: true });
+  // El horario no espera a los datos en directo: si Renfe tarda, se ve igual.
   await cargarHorario();
   pintar();
   cargarLineas();
@@ -118,8 +142,9 @@ async function cargarHorario() {
   try {
     estado.horario = await pedir(`datos/horarios/${dia}.json`);
     estado.dia = dia;
-    // Destino de cada tren de hoy, para el mapa y las listas.
+    // Destino y recorrido de cada tren de hoy, para el mapa, las listas y la hoja de paradas.
     estado.destinos = new Map(estado.horario.map(([tren, linea, paradas]) => [`${tren}|${linea}`, paradas.at(-1)[0]]));
+    estado.viajes = new Map(estado.horario.map((v) => [`${v[0]}|${v[1]}`, v]));
   } catch {
     estado.horario = null;
   }
@@ -138,20 +163,76 @@ async function cargarVivo() {
 }
 
 function pintar() {
+  pintarViaje();
   pintarAhora();
-  pintarMiEstacion();
   pintarPeores();
   pintarFichas();
   pintarCuentasFiltro();
   pintarTrenesEnMapa();
-  pintarTablero();
+  if (estado.hoja && $('hoja').open) pintarHoja();
   pintarAviso();
 }
 
-/** Lleva el mapa a la vista si la acción lo ha cambiado y no se ve (sobre todo en el móvil). */
-function verMapa() {
-  const r = $('mapa').getBoundingClientRect();
-  if (r.top < 0 || r.bottom > innerHeight) $('mapa').scrollIntoView({ behavior: quieto() ? 'auto' : 'smooth', block: 'center' });
+// ---------- Apartados: Mi viaje, Mapa, Cómo va la red ----------
+function prepararVistas() {
+  document.querySelectorAll('.vistas button').forEach((b) => {
+    b.querySelector('.vistas-icono').innerHTML = icono(b.querySelector('.vistas-icono').dataset.icono);
+    b.addEventListener('click', () => mostrarVista(b.dataset.vista));
+  });
+  addEventListener('popstate', () => {
+    const v = new URLSearchParams(location.search).get('vista');
+    mostrarVista(VISTAS.includes(v) ? v : 'viaje', { inicial: true });
+  });
+}
+
+function mostrarVista(vista, { inicial = false } = {}) {
+  estado.vista = vista;
+  document.querySelectorAll('section.vista').forEach((s) => { s.hidden = s.dataset.vista !== vista; });
+  document.querySelectorAll('.vistas button').forEach((b) => {
+    if (b.dataset.vista === vista) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
+  });
+  document.body.dataset.vista = vista;
+  if (vista === 'mapa') {
+    asegurarMapa();
+    estado.mapa?.mapa.resize();
+  }
+  if (!inicial) {
+    scrollTo({ top: 0 });
+    actualizarUrl(true);
+  }
+}
+
+/** El mapa se crea la primera vez que se abre su apartado (así no se carga si no se usa). */
+function asegurarMapa() {
+  if (estado.mapa || !estado.trazados) return;
+  if (!window.maplibregl) {
+    $('mapa').innerHTML = '<p class="mapa-error">No se ha podido cargar el mapa.</p>';
+    return;
+  }
+  estado.mapa = crearMapa({
+    contenedor: 'mapa',
+    oscuro: esOscuro(),
+    trazados: estado.trazados,
+    paradas: estado.paradas,
+    alElegirEstacion: (id) => {
+      elegirOrigen(id);
+      mostrarVista('viaje');
+    },
+    alElegirLinea: (linea) => alternarLinea(linea, true),
+    contenidoTren,
+  });
+  // mapa.js guarda los trenes, la estación y el filtro y los pone en cuanto el estilo está listo:
+  // no hace falta esperar a que el mapa termine de cargar (eso puede tardar con conexiones lentas).
+  estado.mapa.elegirEstacion(estado.origen, false);
+  pintarTrenesEnMapa();
+  if (estado.filtro.size) estado.mapa.filtrarLineas(estado.filtro);
+}
+
+/** Lleva al mapa y enseña un tren. */
+function irAlTren(clave) {
+  mostrarVista('mapa');
+  estado.mapa?.enfocarTren(clave);
 }
 
 /** "a Estació de França" (destino) y dónde está ahora; nunca se confunde una cosa con la otra. */
@@ -160,48 +241,145 @@ function destinoDe(tren, linea) {
   return destino ? `a ${corto(destino)}` : `tren ${tren}`;
 }
 
-// ---------- Ahora ----------
-function pintarAhora() {
-  if (!estado.ts && !estado.intentado) return; // aún cargando: se queda el "Cargando los trenes…"
-  if (!estado.ts) {
-    $('titular').textContent = 'No hay datos de Renfe ahora mismo';
-    $('ahora-texto').innerHTML = 'Vuelve a intentarlo en unos minutos. <button type="button" class="boton-reintentar" id="reintentar">Reintentar</button>';
-    $('reintentar').addEventListener('click', refrescar);
-    return;
-  }
-  const r = resumenAhora([...estado.vivo.values()], UMBRAL);
-  const parte = r.total ? r.conRetraso / r.total : 0;
-  $('titular').innerHTML = r.conRetraso === 0
-    ? 'Ahora mismo Rodalies va <em class="bien">a su hora</em>'
-    : parte < 0.15
-      ? `Ahora mismo van tarde <em>${r.conRetraso} de ${r.total}</em> trenes`
-      : `Ahora mismo, <em>${numero(parte * 100)} %</em> de los trenes van tarde`;
-  pintarRed();
-  $('ahora-texto').innerHTML = r.peor && r.peor[2] >= UMBRAL
-    ? `«Tarde» es ${TARDE} minutos o más. El que más, un ${chip(r.peor[1])} ${destinoDe(r.peor[0], r.peor[1])}, con <strong>${minutos(r.peor[2])} minutos</strong>${r.peor[3] ? ` (ahora cerca de ${corto(r.peor[3])})` : ''}.`
-    : `Ningún tren lleva ${TARDE} minutos o más de retraso.`;
-}
-
-// Tu estación, arriba: sus próximos tres trenes. Responde a "¿va tarde mi tren?" sin bajar.
-function pintarMiEstacion() {
+// ---------- Mi viaje ----------
+function pintarViaje() {
+  const resultado = $('resultado');
   if (!estado.horario) {
-    $('mi-estacion').innerHTML = '';
+    resultado.innerHTML = '<p class="vacio-grande">No hay horarios de hoy cargados. Vuelve a intentarlo en un rato.</p>';
     return;
   }
   const ahora = momentoDeServicio().minutos;
-  const proximas = proximasSalidas(estado.horario, estado.estacion, ahora, estado.vivo, { antes: 0, maximo: 3 });
-  const filas = proximas.map((s) => {
-    const texto = { bus: 'Autobús', cancelado: 'Cancelado', retraso: `+${s.retraso} min`, leve: `+${s.retraso} min`, hora: 'A su hora', 'sin-salir': 'Aún sin salir', 'sin-datos': 'Sin seguimiento' }[s.estado];
-    const clase = { cancelado: 'estado-cancelado', retraso: s.retraso >= MUY_TARDE ? 'estado-cancelado' : 'estado-retraso', hora: 'estado-hora' }[s.estado] ?? 'estado-sin';
-    return `<li>${chip(s.linea)}<span class="mi-hora">${aHora(s.estimada)}</span><span class="mi-destino">${corto(s.destino)}</span><span class="${clase}">${texto}</span></li>`;
-  }).join('');
-  $('mi-estacion').innerHTML = `
-    <div class="mi-cab"><span>${estado.propia ? 'Próximos desde' : 'Por ejemplo, desde'} <strong>${corto(estado.estacion)}</strong></span>
-      <button type="button" class="enlace" data-ir-salidas>${estado.propia ? 'Ver todas' : 'Elige tu estación'}</button></div>
-    ${filas ? `<ul>${filas}</ul>` : '<p class="mi-vacio">No salen trenes en las próximas dos horas.</p>'}`;
+  if (estado.destino) {
+    pintarViajes(ahora);
+    $('nota-viaje').innerHTML = 'La hora de llegada es la prevista más el retraso que lleva el tren <strong>ahora</strong>. Si todavía no ha llegado a tu estación, puede recuperar o perder algo de tiempo por el camino. Toca un tren para ver todas sus paradas.';
+  } else {
+    pintarTablero(ahora);
+    $('nota-viaje').innerHTML = 'En grande, la hora a la que sale de verdad; si va con retraso, la prevista va debajo, tachada. <strong>Toca un tren</strong> para ver a qué hora pasa por cada parada. Pon una estación en «Hasta» para ver directamente a qué hora llegas.';
+  }
 }
 
-// ---------- Reloj de estación y aviso de datos viejos ----------
+function pintarViajes(ahora) {
+  const viajes = proximosViajes(estado.horario, estado.origen, estado.destino, ahora, estado.vivo);
+  const cab = `<div class="viajes-cab"><h2>De <strong>${corto(estado.origen)}</strong> a <strong>${corto(estado.destino)}</strong></h2></div>`;
+  if (!viajes.length) {
+    $('resultado').innerHTML = `${cab}<p class="vacio-grande">No hay trenes directos de ${corto(estado.origen)} a ${corto(estado.destino)} en las próximas 3 horas. Puede que haya que hacer transbordo.</p>`;
+    return;
+  }
+  $('resultado').innerHTML = cab + `<ol class="viajes">${viajes.map((v) => {
+    const tarde = v.retraso > 0 && v.estado !== 'cancelado';
+    const cancelado = v.estado === 'cancelado';
+    return `<li><button type="button" class="viaje${cancelado ? ' cancelado' : ''}" data-tren="${v.tren}" data-linea="${v.linea}"
+        aria-label="Tren ${v.linea} ${destinoDe(v.tren, v.linea)}: sale a las ${aHora(v.saleEstimada)} y llega a las ${aHora(v.llegaEstimada)}. ${frase(v.estado, v.retraso)}">
+      <span class="viaje-linea">${chip(v.linea)}<span>${destinoDe(v.tren, v.linea)}</span></span>
+      <span class="viaje-horas">
+        <span class="viaje-hora"><small>Sale</small><b>${aHora(v.saleEstimada)}</b>${tarde ? `<s>${aHora(v.sale)}</s>` : ''}</span>
+        <span class="viaje-flecha" aria-hidden="true">→</span>
+        <span class="viaje-hora llega"><small>Llegas</small><b>${aHora(v.llegaEstimada)}</b>${tarde ? `<s>${aHora(v.llega)}</s>` : ''}</span>
+      </span>
+      <span class="viaje-estado ${claseEstado(v.estado, v.retraso)}">${frase(v.estado, v.retraso)}</span>
+      <span class="viaje-extra">${cancelado ? '' : `${enCuanto(v.saleEstimada - ahora)} · ${v.duracion} min de viaje · `}<span class="ver-paradas">Ver paradas ›</span></span>
+    </button></li>`;
+  }).join('')}</ol>`;
+}
+
+function pintarTablero(ahora) {
+  const salidas = proximasSalidas(estado.horario, estado.origen, ahora, estado.vivo);
+  const barra = `<div class="tablero-barra"><span class="tablero-salidas">Salidas</span><strong class="tablero-estacion">${nombre(estado.origen)}</strong></div>`;
+  if (!salidas.length) {
+    $('resultado').innerHTML = `<div class="tablero">${barra}<p class="tablero-vacio">No salen trenes de esta estación en las próximas dos horas.</p></div>`;
+    return;
+  }
+  // Solo giran las filas que ya estaban y han cambiado (no al cargar ni al cambiar de estación).
+  const misma = estado.previo.clave === estado.origen;
+  const filas = new Map();
+  $('resultado').innerHTML = `<div class="tablero">${barra}<div class="tablero-cab" aria-hidden="true"><span>Sale</span><span>Línea</span><span>Destino</span><span>Estado</span></div>` + salidas.map((s) => {
+    const enMin = s.estimada - ahora;
+    const cuando = enMin <= 0 ? 'saliendo' : enMin < 60 ? `en ${enMin} min` : `en ${Math.floor(enMin / 60)} h ${enMin % 60} min`;
+    // En grande, siempre la hora a la que sale de verdad; si no es la prevista, la prevista va debajo, tachada.
+    const conRetraso = s.retraso > 0 && s.estado !== 'cancelado';
+    const textoEstado = {
+      cancelado: '<span class="estado-cancelado">Cancelado</span>',
+      bus: `<span class="estado-bus">Autobús</span><small>${cuando}</small>`,
+      retraso: `<span class="estado-retraso${s.retraso >= MUY_TARDE ? ' mucho' : ''}">+${s.retraso} min</span><small>${cuando}</small>`,
+      leve: `<span class="estado-leve">+${s.retraso} min</span><small>${cuando}</small>`,
+      hora: `<span class="estado-hora">A su hora</span><small>${cuando}</small>`,
+      'sin-salir': `<span class="estado-sin">Aún no ha salido</span><small>${cuando}</small>`,
+      'sin-datos': `<span class="estado-sin">Sin seguimiento</span><small>${cuando}</small>`,
+    }[s.estado];
+    const clave = `${s.tren}|${s.linea}`;
+    const firma = `${s.estado}|${s.retraso}`;
+    filas.set(clave, firma);
+    const cambia = misma && estado.previo.filas.has(clave) && estado.previo.filas.get(clave) !== firma;
+    const clases = ['salida', s.estado === 'cancelado' ? 'cancelado' : '', s.estado === 'retraso' ? 'tarde' : '', cambia ? 'cambia' : ''].filter(Boolean).join(' ');
+    return `<button type="button" class="${clases}" style="--color:#${colorDe(s.linea)}" data-tren="${s.tren}" data-linea="${s.linea}"
+        aria-label="${s.linea} a ${corto(s.destino)}, sale a las ${aHora(s.estimada)}. ${frase(s.estado, s.retraso)}. Ver paradas">
+      <span class="salida-hora">${conRetraso ? aHora(s.estimada) : s.hora}${conRetraso ? `<s>${s.hora}</s>` : ''}</span>
+      ${chip(s.linea)}
+      <span class="salida-destino"><strong>${corto(s.destino)}</strong><span>${s.estado === 'bus' ? 'Servicio alternativo por carretera' : `Tren ${s.tren} · ver paradas`}</span></span>
+      <span class="salida-estado">${textoEstado}</span>
+    </button>`;
+  }).join('') + '</div>';
+  estado.previo = { clave: estado.origen, filas };
+}
+
+// ---------- Hoja con las paradas de un tren (estilo ADIF) ----------
+function prepararHoja() {
+  const hoja = $('hoja');
+  hoja.addEventListener('click', (e) => {
+    if (e.target === hoja || e.target.closest('[data-cerrar-hoja]')) hoja.close();
+    const mapa = e.target.closest('[data-ver-mapa]');
+    if (mapa) {
+      hoja.close();
+      irAlTren(mapa.dataset.verMapa);
+    }
+  });
+  hoja.addEventListener('close', () => { estado.hoja = null; });
+}
+
+function abrirHoja(datos) {
+  estado.hoja = datos;
+  pintarHoja();
+  $('hoja').showModal();
+  // Que se vea la parada donde subes (o la actual), no la primera del recorrido.
+  const foco = $('hoja').querySelector('.parada.origen') ?? $('hoja').querySelector('.parada.actual');
+  foco?.scrollIntoView({ block: 'center' });
+}
+
+function pintarHoja() {
+  const { tren, linea, origen, destino } = estado.hoja;
+  const clave = `${tren}|${linea}`;
+  const viaje = estado.viajes.get(clave);
+  if (!viaje) return;
+  const ahora = momentoDeServicio().minutos;
+  const { estado: e, retraso } = estadoDe(viaje, ahora, estado.vivo);
+  const paradas = recorrido(viaje, estado.vivo);
+  const actual = paradas.find((p) => p.actual);
+  const conGps = estado.posiciones.some(([t, l]) => `${t}|${l}` === clave);
+  const iOrigen = paradas.findIndex((p) => p.parada === origen);
+  const iDestino = destino ? paradas.findIndex((p, k) => k > iOrigen && p.parada === destino) : -1;
+  $('hoja').innerHTML = `
+    <div class="hoja-cab">
+      ${chip(linea)}
+      <div><h2 id="hoja-titulo">Tren ${destinoDe(tren, linea)}</h2><p>Tren ${tren}${e === 'bus' ? ' · servicio por carretera' : ''}</p></div>
+      <button type="button" class="hoja-cerrar" data-cerrar-hoja>Cerrar</button>
+    </div>
+    <p class="hoja-estado ${claseEstado(e, retraso)}">${frase(e, retraso)}${actual ? `<span>Ahora por <strong>${corto(actual.parada)}</strong></span>` : ''}</p>
+    ${conGps ? `<button type="button" class="boton-secundario" data-ver-mapa="${clave}">${icono('mapa')}Ver dónde está en el mapa</button>` : ''}
+    <ol class="paradas">${paradas.map((p, k) => {
+      const clases = ['parada', p.pasada ? 'pasada' : '', p.actual ? 'actual' : '', k === iOrigen ? 'origen' : '', k === iDestino ? 'destino' : '',
+        iDestino > -1 && k > iOrigen && k < iDestino ? 'en-tramo' : ''].filter(Boolean).join(' ');
+      const tarde = retraso > 0 && !p.pasada && e !== 'cancelado';
+      const marca = p.actual ? '<em class="marca-actual">Ahora por aquí</em>' : k === iOrigen ? '<em>Subes aquí</em>' : k === iDestino ? '<em>Bajas aquí</em>' : '';
+      return `<li class="${clases}">
+        <span class="parada-hora"><b>${aHora(tarde ? p.estimada : p.minutos)}</b>${tarde ? `<s>${p.hora}</s>` : ''}</span>
+        <span class="parada-punto" aria-hidden="true"></span>
+        <span class="parada-nombre">${nombre(p.parada)}${marca}</span>
+      </li>`;
+    }).join('')}</ol>
+    <p class="hoja-nota">${retraso > 0 ? `Las horas en grande suman los ${retraso} min de retraso que lleva ahora. ` : ''}Las paradas en gris ya las ha pasado.</p>`;
+}
+
+// ---------- Reloj y aviso de datos viejos ----------
 function prepararReloj() {
   const formato = new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
   const tic = () => {
@@ -229,7 +407,29 @@ function pintarAviso() {
   }
 }
 
-// ---------- La red ahora: una raya por tren ----------
+// ---------- Cómo va la red ----------
+function pintarAhora() {
+  if (!estado.ts && !estado.intentado) return; // aún cargando: se queda el "Cargando los trenes…"
+  if (!estado.ts) {
+    $('titular').textContent = 'No hay datos de Renfe ahora mismo';
+    $('ahora-texto').innerHTML = 'Vuelve a intentarlo en unos minutos. <button type="button" class="boton-reintentar" id="reintentar">Reintentar</button>';
+    $('reintentar').addEventListener('click', refrescar);
+    return;
+  }
+  const r = resumenAhora([...estado.vivo.values()], UMBRAL);
+  const parte = r.total ? r.conRetraso / r.total : 0;
+  $('titular').innerHTML = r.conRetraso === 0
+    ? 'Ahora mismo Rodalies va <em class="bien">a su hora</em>'
+    : parte < 0.15
+      ? `Ahora mismo van tarde <em>${r.conRetraso} de ${r.total}</em> trenes`
+      : `Ahora mismo, <em>${numero(parte * 100)} %</em> de los trenes van tarde`;
+  pintarRed();
+  $('ahora-texto').innerHTML = r.peor && r.peor[2] >= UMBRAL
+    ? `«Tarde» es ${TARDE} minutos o más. El que más, un ${chip(r.peor[1])} ${destinoDe(r.peor[0], r.peor[1])}, con <strong>${minutos(r.peor[2])} minutos</strong>${r.peor[3] ? ` (ahora cerca de ${corto(r.peor[3])})` : ''}.`
+    : `Ningún tren lleva ${TARDE} minutos o más de retraso.`;
+}
+
+// La red ahora: una raya por tren
 let rayas = [];
 function tipoDe(t) {
   return t[4] ? 'tc' : t[2] >= MUY_TARDE * 60 ? 't2' : t[2] >= UMBRAL ? 't1' : 't0';
@@ -267,7 +467,7 @@ function prepararRed() {
   };
   const ensenar = () => {
     const t = rayas[elegida];
-    if (t && estado.mapa?.enfocarTren(`${t[0]}|${t[1]}`)) verMapa();
+    if (t && estado.posiciones.some(([tr, l]) => tr === t[0] && l === t[1])) irAlTren(`${t[0]}|${t[1]}`);
   };
   barra.addEventListener('pointerdown', (e) => { barra.setPointerCapture(e.pointerId); decir(indice(e.clientX)); });
   barra.addEventListener('pointermove', (e) => { if (e.buttons || e.pointerType === 'mouse') decir(indice(e.clientX)); });
@@ -283,22 +483,19 @@ function prepararRed() {
   });
 }
 
-// Los cinco que más retraso llevan ahora (de las líneas elegidas, si hay); al tocarlos, el mapa vuela a ellos.
+// Los cinco que más retraso llevan ahora; al tocarlos, el mapa vuela a ellos.
 function pintarPeores() {
   const gps = new Map(estado.posiciones.map(([tren, linea, , , , parada]) => [`${tren}|${linea}`, parada]));
-  const conPosicion = new Set(gps.keys());
   const peores = [...estado.vivo.values()]
-    .filter((t) => !t[4] && t[2] !== null && t[2] >= UMBRAL && (!estado.filtro.size || estado.filtro.has(t[1])))
+    .filter((t) => !t[4] && t[2] !== null && t[2] >= UMBRAL)
     .sort((a, b) => b[2] - a[2])
     .slice(0, 5);
-  // Con líneas elegidas, sus fichas ya listan sus trenes por retraso: no se repite.
-  document.querySelector('.peores').hidden = estado.filtro.size > 0;
   $('peores').innerHTML = peores.length
     ? peores.map(([tren, linea, retraso, paradaRt]) => {
         const clave = `${tren}|${linea}`;
         const parada = gps.get(clave) || paradaRt;
         const etiqueta = `${linea} ${destinoDe(tren, linea)}, ${minutos(retraso)} minutos de retraso${parada ? `, cerca de ${corto(parada)}` : ''}`;
-        return `<li><button type="button" data-clave="${clave}" aria-label="${etiqueta}" ${conPosicion.has(clave) ? '' : 'disabled title="Sin posición GPS ahora mismo"'}>
+        return `<li><button type="button" data-clave="${clave}" aria-label="${etiqueta}" ${gps.has(clave) ? '' : 'disabled title="Sin posición GPS ahora mismo"'}>
           <span class="peor-retraso${retraso >= MUY_TARDE * 60 ? ' mucho' : ''}">+${minutos(retraso)}′</span>${chip(linea)}
           <span class="peor-destino">${destinoDe(tren, linea)}<small>${parada ? `ahora cerca de ${corto(parada)}` : ''}</small></span></button></li>`;
       }).join('')
@@ -306,27 +503,6 @@ function pintarPeores() {
 }
 
 // ---------- Mapa ----------
-function prepararMapa() {
-  if (!window.maplibregl) {
-    $('mapa').innerHTML = '<p class="mapa-error">No se ha podido cargar el mapa.</p>';
-    return;
-  }
-  estado.mapa = crearMapa({
-    contenedor: 'mapa',
-    oscuro: esOscuro(),
-    trazados: estado.trazados,
-    paradas: estado.paradas,
-    alElegirEstacion: (id) => elegirEstacion(id, { volar: false, irAlPanel: true }),
-    alElegirLinea: (linea) => alternarLinea(linea, true),
-    contenidoTren,
-  });
-  estado.mapa.mapa.on('load', () => {
-    estado.mapa.elegirEstacion(estado.estacion, false);
-    pintarTrenesEnMapa();
-    if (estado.filtro.size) estado.mapa.filtrarLineas(estado.filtro);
-  });
-}
-
 function pintarTrenesEnMapa() {
   if (!estado.mapa) return;
   estado.mapa.actualizarTrenes(estado.posiciones.map(([tren, linea, lat, lon, situacion, parada]) => {
@@ -357,6 +533,7 @@ function contenidoTren(p) {
     <p>${retraso}</p>
     ${p.parada ? `<p class="tren-donde">${situacion} ${corto(p.parada)}</p>` : ''}
     <p class="tren-numero">Tren ${p.tren}</p>
+    ${estado.viajes.has(`${p.tren}|${p.linea}`) ? `<button type="button" class="enlace ver-paradas-mapa" data-paradas="${p.tren}|${p.linea}">Ver a qué hora pasa por cada parada</button>` : ''}
   </div>`;
 }
 
@@ -387,7 +564,10 @@ function prepararFiltro() {
       return pintarFichas();
     }
     const tren = e.target.closest('[data-clave]');
-    if (tren && estado.mapa?.enfocarTren(tren.dataset.clave)) verMapa();
+    if (tren) {
+      irAlTren(tren.dataset.clave);
+      $('mapa').scrollIntoView({ behavior: quieto() ? 'auto' : 'smooth', block: 'center' });
+    }
   });
 }
 
@@ -400,7 +580,6 @@ function alternarLinea(linea, sola = false) {
   } else if (estado.filtro.has(linea)) estado.filtro.delete(linea);
   else estado.filtro.add(linea);
   aplicarFiltro();
-  if (estado.filtro.size) verMapa();
 }
 
 // Cuántos trenes de cada línea circulan ahora, en su botón.
@@ -423,7 +602,6 @@ function aplicarFiltro() {
   estado.mapa?.filtrarLineas(estado.filtro);
   actualizarUrl();
   pintarFichas();
-  pintarPeores();
 }
 
 // Ficha de cada línea elegida: recorrido, trenes de ahora y puntualidad desde que hay datos.
@@ -458,36 +636,67 @@ function pintarFichas() {
   }).join('');
 }
 
-// ---------- Tu estación ----------
-function elegirEstacion(id, { volar = true, irAlPanel = false } = {}) {
-  estado.estacion = id;
+// ---------- Origen y destino ----------
+function elegirOrigen(id) {
+  estado.origen = id;
   estado.propia = true;
+  if (estado.destino === id) estado.destino = '';
   guardar('estacion', id);
   guardar('recientes', JSON.stringify([id, ...recientes().filter((x) => x !== id)].slice(0, 4)));
-  $('estacion').value = nombre(id);
-  actualizarUrl();
-  pintarAtajos();
-  pintarTablero();
-  pintarMiEstacion();
-  estado.mapa?.elegirEstacion(id, volar);
-  if (irAlPanel) $('salidas').scrollIntoView({ behavior: quieto() ? 'auto' : 'smooth', block: 'start' });
+  despuesDeElegir();
+  estado.mapa?.elegirEstacion(id, false);
 }
 
-function actualizarUrl() {
+function elegirDestino(id) {
+  estado.destino = id === estado.origen ? '' : id;
+  guardar('destino', estado.destino);
+  despuesDeElegir();
+}
+
+function despuesDeElegir() {
+  $('estacion').value = nombre(estado.origen);
+  $('destino').value = estado.destino ? nombre(estado.destino) : '';
+  $('borrar-destino').hidden = !estado.destino;
+  actualizarUrl();
+  pintarAtajos();
+  pintarViaje();
+}
+
+function actualizarUrl(empujar = false) {
   const p = new URLSearchParams();
-  if (estado.estacion !== '71801') p.set('estacion', estado.estacion);
+  if (estado.vista !== 'viaje') p.set('vista', estado.vista);
+  if (estado.origen !== '71801') p.set('desde', estado.origen);
+  if (estado.destino) p.set('hasta', estado.destino);
   if (estado.filtro.size === 1) p.set('linea', [...estado.filtro][0]);
-  history.replaceState(null, '', p.size ? `?${p}` : location.pathname);
+  const url = p.size ? `?${p}` : location.pathname;
+  if (empujar) history.pushState(null, '', url);
+  else history.replaceState(null, '', url);
+}
+
+function prepararBuscadores() {
+  crearBuscador({ entrada: $('estacion'), lista: $('estaciones-lista'), prefijo: 'o', valor: () => estado.origen, alElegir: elegirOrigen });
+  crearBuscador({ entrada: $('destino'), lista: $('destinos-lista'), prefijo: 'd', valor: () => estado.destino, alElegir: elegirDestino });
+  $('borrar-destino').addEventListener('click', () => elegirDestino(''));
+  $('intercambiar').addEventListener('click', () => {
+    if (!estado.destino) return $('destino').focus();
+    const [o, d] = [estado.destino, estado.origen];
+    estado.destino = d;
+    guardar('destino', d);
+    elegirOrigen(o);
+  });
+  $('atajos').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.id) return elegirOrigen(b.dataset.id);
+    if (b.dataset.cerca !== undefined) cercaDeMi(b);
+  });
+  despuesDeElegir();
 }
 
 // Buscador propio (no <datalist>): sin tildes ni mayúsculas, por partes y con aviso si no hay nada.
-function prepararBuscador() {
-  const entrada = $('estacion');
-  const lista = $('estaciones-lista');
+function crearBuscador({ entrada, lista, prefijo, valor, alElegir }) {
   let opciones = [];
   let activa = -1;
-  entrada.value = nombre(estado.estacion);
-
   const cerrar = () => {
     lista.hidden = true;
     entrada.setAttribute('aria-expanded', 'false');
@@ -496,13 +705,13 @@ function prepararBuscador() {
   const marcar = (i) => {
     activa = i;
     lista.querySelectorAll('[role=option]').forEach((li, j) => li.setAttribute('aria-selected', String(j === i)));
-    if (i >= 0) entrada.setAttribute('aria-activedescendant', `opcion-${i}`);
+    if (i >= 0) entrada.setAttribute('aria-activedescendant', `${prefijo}-opcion-${i}`);
   };
   const mostrar = () => {
     const texto = entrada.value.trim();
     opciones = texto ? buscarEstaciones(estado.paradas, texto) : [];
     lista.innerHTML = opciones.length
-      ? opciones.map((o, i) => `<li role="option" id="opcion-${i}" data-id="${o.id}" aria-selected="false">${o.nombre}</li>`).join('')
+      ? opciones.map((o, i) => `<li role="option" id="${prefijo}-opcion-${i}" data-id="${o.id}" aria-selected="false">${o.nombre}</li>`).join('')
       : texto ? `<li class="sin-resultados">No encontramos «${texto.replace(/[<>&]/g, '')}». Prueba con otra parte del nombre.</li>` : '';
     lista.hidden = !texto;
     entrada.setAttribute('aria-expanded', String(!lista.hidden));
@@ -510,10 +719,9 @@ function prepararBuscador() {
   };
   const elegir = (id) => {
     cerrar();
-    elegirEstacion(id);
+    alElegir(id);
     entrada.blur();
   };
-
   entrada.addEventListener('focus', () => entrada.select());
   entrada.addEventListener('input', mostrar);
   entrada.addEventListener('keydown', (e) => {
@@ -526,7 +734,7 @@ function prepararBuscador() {
       if (opciones[activa]) elegir(opciones[activa].id);
     } else if (e.key === 'Escape') {
       cerrar();
-      entrada.value = nombre(estado.estacion);
+      entrada.value = valor() ? nombre(valor()) : '';
     }
   });
   lista.addEventListener('pointerdown', (e) => e.preventDefault()); // que no se pierda el foco antes del clic
@@ -537,16 +745,8 @@ function prepararBuscador() {
   // Al salir sin elegir, el campo vuelve a decir la estación que de verdad se está viendo.
   entrada.addEventListener('blur', () => {
     cerrar();
-    entrada.value = nombre(estado.estacion);
+    entrada.value = valor() ? nombre(valor()) : '';
   });
-
-  $('atajos').addEventListener('click', (e) => {
-    const b = e.target.closest('button');
-    if (!b) return;
-    if (b.dataset.id) return elegirEstacion(b.dataset.id);
-    if (b.dataset.cerca !== undefined) cercaDeMi(b);
-  });
-  pintarAtajos();
 }
 
 function cercaDeMi(boton) {
@@ -555,7 +755,7 @@ function cercaDeMi(boton) {
   navigator.geolocation.getCurrentPosition(
     ({ coords }) => {
       const cerca = estacionMasCercana(estado.paradas, coords.latitude, coords.longitude);
-      if (cerca) elegirEstacion(cerca.id);
+      if (cerca) elegirOrigen(cerca.id);
       else pintarAtajos();
     },
     () => {
@@ -569,52 +769,7 @@ function cercaDeMi(boton) {
 function pintarAtajos() {
   const ids = [...new Set([...recientes().filter((id) => estado.paradas[id]), ...ATAJOS])].slice(0, 6);
   $('atajos').innerHTML = ('geolocation' in navigator ? '<button type="button" data-cerca class="atajo-cerca">Cerca de mí</button>' : '') +
-    ids.map((id) => `<button type="button" data-id="${id}" aria-pressed="${id === estado.estacion}">${corto(id)}</button>`).join('');
-}
-
-function pintarTablero() {
-  $('tablero-estacion').textContent = nombre(estado.estacion);
-  const tablero = $('tablero');
-  if (!estado.horario) {
-    tablero.innerHTML = '<p class="tablero-vacio">No hay horarios de hoy cargados. Vuelve a intentarlo en un rato.</p>';
-    return;
-  }
-  const ahora = momentoDeServicio().minutos;
-  const salidas = proximasSalidas(estado.horario, estado.estacion, ahora, estado.vivo);
-  if (!salidas.length) {
-    tablero.innerHTML = '<p class="tablero-vacio">No salen trenes de esta estación en las próximas dos horas.</p>';
-    return;
-  }
-  // Solo giran las filas que ya estaban y han cambiado (no al cargar ni al cambiar de estación).
-  const mismaEstacion = estado.previo.estacion === estado.estacion;
-  const filas = new Map();
-  tablero.innerHTML = '<div class="tablero-cab" aria-hidden="true"><span>Sale</span><span>Línea</span><span>Destino</span><span>Estado</span></div>' + salidas.map((s) => {
-    const enMin = s.estimada - ahora;
-    const cuando = enMin <= 0 ? 'saliendo' : enMin < 60 ? `en ${enMin} min` : `en ${Math.floor(enMin / 60)} h ${enMin % 60} min`;
-    // En grande, siempre la hora a la que sale de verdad; si no es la prevista, la prevista va debajo, tachada.
-    const conRetraso = s.retraso > 0 && s.estado !== 'cancelado';
-    const textoEstado = {
-      cancelado: '<span class="estado-cancelado">Cancelado</span>',
-      bus: `<span class="estado-bus">Autobús</span><small>${cuando}</small>`,
-      retraso: `<span class="estado-retraso${s.retraso >= MUY_TARDE ? ' mucho' : ''}">+${s.retraso} min</span><small>${cuando}</small>`,
-      leve: `<span class="estado-leve">+${s.retraso} min</span><small>${cuando}</small>`,
-      hora: `<span class="estado-hora">A su hora</span><small>${cuando}</small>`,
-      'sin-salir': `<span class="estado-sin">Aún no ha salido</span><small>${cuando}</small>`,
-      'sin-datos': `<span class="estado-sin">Sin seguimiento</span><small>${cuando}</small>`,
-    }[s.estado];
-    const clave = `${s.tren}|${s.linea}`;
-    const firma = `${s.estado}|${s.retraso}`;
-    filas.set(clave, firma);
-    const cambia = mismaEstacion && estado.previo.filas.has(clave) && estado.previo.filas.get(clave) !== firma;
-    const clases = ['salida', s.estado === 'cancelado' ? 'cancelado' : '', s.estado === 'retraso' ? 'tarde' : '', cambia ? 'cambia' : ''].filter(Boolean).join(' ');
-    return `<div class="${clases}" style="--color:#${colorDe(s.linea)}">
-      <span class="salida-hora">${conRetraso ? aHora(s.estimada) : s.hora}${conRetraso ? `<s aria-label="prevista ${s.hora}">${s.hora}</s>` : ''}</span>
-      ${chip(s.linea)}
-      <div class="salida-destino"><strong>${corto(s.destino)}</strong><span>${s.estado === 'bus' ? 'Servicio alternativo por carretera' : `Tren ${s.tren}`}</span></div>
-      <div class="salida-estado">${textoEstado}</div>
-    </div>`;
-  }).join('');
-  estado.previo = { estacion: estado.estacion, filas };
+    ids.map((id) => `<button type="button" data-id="${id}" aria-pressed="${id === estado.origen}">${corto(id)}</button>`).join('');
 }
 
 // ---------- Líneas ----------

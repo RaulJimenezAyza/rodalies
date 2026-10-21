@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aHora, aMinutos, buscarEstaciones, estacionMasCercana, momentoDeServicio, proximasSalidas, resumenAhora, textoSobre } from '../web/public/tablero.js';
+import { aHora, aMinutos, buscarEstaciones, estacionMasCercana, momentoDeServicio, proximasSalidas, proximosViajes, recorrido, resumenAhora, textoSobre } from '../web/public/tablero.js';
 
 test('minutos de servicio: después de medianoche siguen contando para el día anterior', () => {
   // 20/10/2026 01:30 en Madrid (23:30 UTC del 19) → servicio del 19, minuto 25 h 30 min.
@@ -64,4 +64,35 @@ test('proximasSalidas: los viajes en autobús salen como «bus», aunque haya da
   const [s] = proximasSalidas(horario, 'A', 9 * 60 + 50, new Map([['1|R3', ['1', 'R3', 600, null, false]]]));
   assert.equal(s.estado, 'bus');
   assert.equal(s.retraso, 0);
+});
+
+const DIA = [
+  ['1', 'R1', [['A', '10:00'], ['B', '10:10'], ['C', '10:30'], ['D', '10:40']]],
+  ['2', 'R1', [['D', '10:05'], ['C', '10:15'], ['B', '10:35'], ['A', '10:45']]], // sentido contrario
+  ['3', 'R1', [['A', '10:20'], ['B', '10:30']]], // no llega a C
+];
+
+test('proximosViajes: solo los que van de origen a destino en ese sentido, con salida y llegada reales', () => {
+  const vivo = new Map([['1|R1', ['1', 'R1', 480, 'A', 0]]]); // 8 min tarde
+  const v = proximosViajes(DIA, 'B', 'C', 9 * 60 + 55, vivo);
+  assert.equal(v.length, 1);
+  assert.equal(v[0].tren, '1');
+  assert.equal(aHora(v[0].sale), '10:10');
+  assert.equal(aHora(v[0].saleEstimada), '10:18');
+  assert.equal(aHora(v[0].llegaEstimada), '10:38');
+  assert.equal(v[0].duracion, 20);
+  assert.equal(v[0].estado, 'retraso');
+});
+
+test('recorrido: marca las paradas pasadas y la actual, y suma el retraso a todas', () => {
+  const vivo = new Map([['1|R1', ['1', 'R1', 300, 'C', 0]]]);
+  const r = recorrido(DIA[0], vivo);
+  assert.deepEqual(r.map((p) => [p.parada, p.pasada, p.actual]), [['A', true, false], ['B', true, false], ['C', false, true], ['D', false, false]]);
+  assert.equal(aHora(r[3].estimada), '10:45');
+});
+
+test('proximosViajes y proximasSalidas: no ofrecen un tren que ya ha pasado por tu estación', () => {
+  const vivo = new Map([['1|R1', ['1', 'R1', 600, 'C', 0]]]); // va por C: ya pasó por B
+  assert.equal(proximosViajes(DIA, 'B', 'D', 10 * 60 + 5, vivo).length, 0);
+  assert.equal(proximasSalidas(DIA, 'B', 10 * 60 + 5, vivo).some((s) => s.tren === '1'), false);
 });

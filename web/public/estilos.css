@@ -393,17 +393,11 @@ body.datos-viejos .tablero, body.datos-viejos .mi-estacion ul { opacity: 0.6; }
   .peores { margin-top: 18px; }
 }
 @media (max-width: 700px) {
-  main, .cabecera, .portada { padding-left: 16px; padding-right: 16px; }
+  main, .cabecera { padding-left: 16px; padding-right: 16px; }
   .pie { width: calc(100% - 32px); }
   .aviso-datos { margin: 12px 16px 0; }
   .frescura { display: none; }
   .titular { font-size: 2rem; }
-  .portada { grid-template-areas: 'titular' 'texto' 'mapa' 'filtro' 'mi' 'red' 'fichas' 'peores'; }
-  .panel-ahora { display: contents; }
-  .titular { grid-area: titular; padding-top: 8px; }
-  .ahora-texto { grid-area: texto; margin-top: 0; }
-  .mi-estacion { grid-area: mi; margin-top: 12px; }
-  .red { grid-area: red; margin-top: 12px; }
   .mapa { min-height: 340px; }
   .filtro { flex-direction: column; gap: 6px; }
   .filtro-etiqueta { padding-top: 0; }
@@ -516,3 +510,165 @@ body.datos-viejos .tablero, body.datos-viejos .mi-estacion ul { opacity: 0.6; }
   .cafe-ventana iframe { max-height: calc(92dvh - 120px); }
 }
 @media (prefers-reduced-motion: reduce) { .cafe-ventana[open] { animation: none; } }
+
+/* =====================================================================
+   Apartados: Mi viaje · Mapa · Cómo va la red
+   ===================================================================== */
+.cabecera { flex-wrap: wrap; padding-bottom: 14px; border-bottom: 1px solid var(--linea); max-width: none; }
+.vistas { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--fondo-2); }
+.vistas button {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--tinta-2); font-weight: 700; font-size: 0.9375rem; cursor: pointer; white-space: nowrap;
+}
+.vistas button:hover { color: var(--tinta); }
+.vistas button[aria-current='page'] { background: var(--fondo); color: var(--tinta); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); }
+.vistas-icono { display: grid; }
+.vistas-icono .icono { width: 20px; height: 20px; }
+main { max-width: 1240px; }
+.vista { padding: 28px 0 48px; }
+.vista[hidden] { display: none; }
+
+/* ---------- Mi viaje: letra grande, lo esencial ---------- */
+.vista-viaje { max-width: 860px; margin: 0 auto; }
+.viaje-titulo { font-weight: 800; font-size: clamp(1.9rem, 4vw, 2.6rem); letter-spacing: -0.03em; }
+.trayecto { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 10px; margin-top: 18px; }
+.campo { display: grid; gap: 6px; min-width: 0; }
+.campo label { font-weight: 700; font-size: 1rem; }
+.opcional { font-weight: 500; color: var(--tinta-3); font-size: 0.875rem; }
+.campo .buscador { max-width: none; flex: none; }
+.campo .buscador input { font-size: 1.125rem; min-height: 56px; }
+.borrar-destino {
+  position: absolute; right: 6px; top: 6px; width: 44px; height: 44px; border: 0; border-radius: 50%;
+  background: transparent; color: var(--tinta-2); font-size: 1.5rem; cursor: pointer;
+}
+.borrar-destino:hover { background: var(--fondo-2); }
+.borrar-destino[hidden] { display: none; }
+.intercambiar {
+  width: 52px; height: 56px; border-radius: var(--r-m); border: 1.5px solid var(--linea-fuerte); background: var(--fondo);
+  font-size: 1.4rem; cursor: pointer; transform: rotate(90deg);
+}
+.intercambiar:hover { border-color: var(--tinta); }
+#resultado { margin-top: 24px; }
+.vacio-grande { padding: 24px; border-radius: var(--r-m); background: var(--fondo-2); font-size: 1.0625rem; color: var(--tinta-2); }
+
+.viajes-cab h2 { font-size: 1.125rem; font-weight: 600; color: var(--tinta-2); }
+.viajes-cab strong { color: var(--tinta); font-weight: 800; }
+.viajes { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.viaje {
+  width: 100%; display: grid; grid-template-columns: 1fr auto; grid-template-areas: 'linea linea' 'horas estado' 'extra extra';
+  gap: 8px 16px; align-items: center; padding: 16px 18px; text-align: left; cursor: pointer;
+  border: 1.5px solid var(--linea); border-radius: var(--r-m); background: var(--fondo); transition: border-color 0.15s, box-shadow 0.15s;
+}
+.viaje:hover { border-color: var(--tinta-3); box-shadow: 0 4px 16px -8px rgba(0, 0, 0, 0.25); }
+.viaje-linea { grid-area: linea; display: flex; align-items: center; gap: 10px; font-weight: 600; color: var(--tinta-2); }
+.viaje-horas { grid-area: horas; display: flex; align-items: flex-end; gap: 14px; }
+.viaje-hora { display: grid; }
+.viaje-hora small { font-size: 0.875rem; font-weight: 600; color: var(--tinta-3); }
+.viaje-hora b { font-size: 2.25rem; font-weight: 800; font-stretch: 85%; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.viaje-hora s { font-size: 0.9375rem; color: var(--tinta-3); margin-top: 2px; }
+.viaje-hora.llega b { color: var(--tinta); }
+.viaje-flecha { font-size: 1.75rem; color: var(--tinta-3); padding-bottom: 4px; }
+.viaje-estado { grid-area: estado; justify-self: end; text-align: right; font-weight: 700; font-size: 1.0625rem; max-width: 16ch; }
+.viaje-extra { grid-area: extra; font-size: 0.9375rem; color: var(--tinta-3); }
+.ver-paradas { color: var(--tinta); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.viaje.cancelado .viaje-hora b { text-decoration: line-through; color: var(--tinta-3); }
+.estado-leve { color: var(--tinta); }
+.estado-bus { color: var(--medio); }
+
+/* Las filas del panel ahora son botones (abren las paradas) */
+button.salida { width: 100%; border: 0; border-bottom: 1px solid var(--panel-linea); background: transparent; color: inherit; text-align: left; cursor: pointer; font: inherit; }
+button.salida:last-child { border-bottom: 0; }
+.salida-hora s { display: block; }
+
+/* ---------- Hoja con las paradas de un tren ---------- */
+.hoja {
+  width: min(560px, calc(100% - 32px)); max-height: min(86vh, 860px); padding: 0; border: 0; border-radius: 16px;
+  background: var(--fondo); color: var(--tinta); box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.5); overflow: auto;
+}
+.hoja::backdrop { background: rgba(0, 0, 0, 0.5); }
+.hoja[open] { animation: hoja-sube 0.3s var(--suave); }
+@keyframes hoja-sube { from { transform: translateY(30px); opacity: 0; } }
+.hoja-cab { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 16px 18px; background: var(--fondo); border-bottom: 1px solid var(--linea); }
+.hoja-cab > div { flex: 1; min-width: 0; }
+.hoja-cab h2 { font-size: 1.25rem; font-weight: 800; line-height: 1.2; }
+.hoja-cab p { font-size: 0.875rem; color: var(--tinta-3); }
+.hoja-cerrar { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--linea-fuerte); background: transparent; font-weight: 700; cursor: pointer; }
+.hoja-estado { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 14px 18px 0; font-size: 1.125rem; font-weight: 800; }
+.hoja-estado span { font-weight: 500; color: var(--tinta-2); font-size: 1rem; }
+.hoja-estado strong { color: var(--tinta); }
+.boton-secundario {
+  display: inline-flex; align-items: center; gap: 8px; margin: 12px 18px 0; min-height: 44px; padding: 0 16px;
+  border-radius: 999px; border: 1.5px solid var(--linea-fuerte); background: transparent; font-weight: 700; cursor: pointer;
+}
+.boton-secundario .icono { width: 18px; height: 18px; }
+.paradas { list-style: none; margin: 14px 0 0; padding: 0 18px; }
+.parada { display: grid; grid-template-columns: 4.6em 22px 1fr; align-items: center; gap: 0 12px; min-height: 52px; }
+.parada-hora { display: grid; text-align: right; }
+.parada-hora b { font-size: 1.25rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.parada-hora s { font-size: 0.8125rem; color: var(--tinta-3); }
+.parada-punto { position: relative; align-self: stretch; }
+.parada-punto::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 4px; margin-left: -2px; background: var(--linea-fuerte); }
+.parada:first-child .parada-punto::before { top: 50%; }
+.parada:last-child .parada-punto::before { bottom: 50%; }
+.parada-punto::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%;
+  background: var(--fondo); border: 3px solid var(--linea-fuerte);
+}
+.parada-nombre { display: grid; font-size: 1.0625rem; font-weight: 600; padding: 6px 0; }
+.parada-nombre em { font-style: normal; font-size: 0.8125rem; font-weight: 800; color: var(--tinta-2); }
+.parada.pasada { color: var(--tinta-3); }
+.parada.pasada .parada-hora b { font-weight: 600; }
+.parada.pasada .parada-punto::after { background: var(--linea-fuerte); }
+.parada.origen .parada-punto::after, .parada.destino .parada-punto::after { width: 20px; height: 20px; margin: -10px 0 0 -10px; border-color: var(--tinta); }
+.parada.origen .parada-nombre, .parada.destino .parada-nombre { font-weight: 800; font-size: 1.1875rem; }
+.parada.en-tramo .parada-punto::before, .parada.destino .parada-punto::before { background: var(--tinta); }
+.parada.origen .parada-punto::before { background: linear-gradient(var(--linea-fuerte) 50%, var(--tinta) 50%); }
+.parada.actual .parada-punto::after { width: 22px; height: 22px; margin: -11px 0 0 -11px; background: var(--ambar); border-color: var(--ambar); box-shadow: 0 0 0 5px color-mix(in srgb, var(--ambar) 35%, transparent); }
+.marca-actual { color: var(--medio) !important; }
+.hoja-nota { padding: 14px 18px 20px; font-size: 0.875rem; color: var(--tinta-3); }
+
+/* ---------- Mapa a pantalla grande ---------- */
+.vista-mapa { padding-top: 16px; }
+.vista-mapa .mapa-marco { min-height: calc(100vh - 230px); }
+.vista-mapa .mapa { min-height: calc(100vh - 230px); }
+.vista-mapa .bajo-mapa { margin-top: 12px; }
+.vista-mapa .fichas-linea { margin-top: 16px; }
+
+/* ---------- Cómo va la red ---------- */
+.red-cabeza .panel-ahora, .red-cabeza .peores { grid-area: auto; }
+.red-cabeza { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px 48px; align-items: start; }
+.vista-red .panel-ahora { padding-top: 0; }
+.vista-red .peores { margin-top: 0; }
+.vista-red .lineas { margin-top: 40px; }
+
+/* ---------- Móvil: barra de apartados abajo, a mano del pulgar ---------- */
+@media (max-width: 700px) {
+  .cabecera { padding-bottom: 12px; }
+  .vistas {
+    position: fixed; z-index: 30; left: 0; right: 0; bottom: 0; border-radius: 0; padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    background: var(--fondo); border-top: 1px solid var(--linea); box-shadow: 0 -6px 20px -10px rgba(0, 0, 0, 0.25); gap: 2px;
+  }
+  .vistas button { flex: 1; flex-direction: column; gap: 2px; min-height: 56px; padding: 0 4px; border-radius: 12px; font-size: 0.8125rem; }
+  .vistas button[aria-current='page'] { background: var(--fondo-2); box-shadow: none; }
+  body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .cafe { bottom: calc(86px + env(safe-area-inset-bottom)); }
+  .vista { padding-top: 18px; }
+  .trayecto { grid-template-columns: 1fr; gap: 8px; position: relative; }
+  .intercambiar { position: absolute; right: 0; top: 50%; z-index: 3; width: 44px; height: 44px; margin-top: -4px; transform: none; border-radius: 50%; background: var(--fondo); }
+  .trayecto .campo:last-child .buscador input { padding-right: 52px; }
+  .trayecto .campo:first-child .buscador input { padding-right: 52px; }
+  .viaje { grid-template-areas: 'linea linea' 'horas horas' 'estado estado' 'extra extra'; padding: 14px; }
+  .viaje-estado { justify-self: start; text-align: left; max-width: none; }
+  .viaje-hora b { font-size: 2rem; }
+  .red-cabeza { grid-template-columns: 1fr; }
+  .vista-mapa .mapa-marco, .vista-mapa .mapa { min-height: calc(100vh - 250px); }
+  .hoja { width: 100%; max-width: none; max-height: 92vh; margin: auto 0 0; border-radius: 16px 16px 0 0; }
+  .parada-hora b { font-size: 1.125rem; }
+}
+
+.ver-paradas-mapa { margin-top: 6px; padding: 0; min-height: 32px; font-weight: 700; color: var(--tinta); }
+/* La cabecera y el estado de la hoja quedan siempre a la vista: solo se desplaza la lista de paradas. */
+.hoja[open] { display: flex; flex-direction: column; overflow: hidden; }
+.hoja .hoja-cab { position: static; }
+.hoja .paradas { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 8px; border-top: 1px solid var(--linea); margin-top: 14px; padding-top: 6px; }
+.hoja .hoja-nota { border-top: 1px solid var(--linea); padding-top: 10px; padding-bottom: 14px; }

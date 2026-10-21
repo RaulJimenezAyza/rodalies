@@ -32,23 +32,79 @@ export const aHora = (minutos) => `${String(Math.floor(minutos / 60) % 24).padSt
  */
 export function proximasSalidas(horario, parada, ahora, vivo, { antes = 2, despues = 120, maximo = 12 } = {}) {
   const salidas = [];
-  for (const [tren, linea, paradas, bus] of horario) {
+  for (const viaje of horario) {
+    const [tren, linea, paradas] = viaje;
     const i = paradas.findIndex(([p]) => p === parada);
     if (i === -1 || i === paradas.length - 1) continue; // no pasa por aquí o termina aquí
+    if (yaPasado(viaje, i, vivo)) continue;
     const minutos = aMinutos(paradas[i][1]);
-    const real = vivo.get(`${tren}|${linea}`);
-    let estado, retraso = 0;
-    if (bus) estado = 'bus'; // servicio por carretera: sin seguimiento en directo
-    else if (real?.[4]) estado = 'cancelado';
-    else if (real && real[2] !== null) {
-      retraso = Math.max(0, Math.round(real[2] / 60));
-      estado = retraso >= TARDE ? 'retraso' : retraso >= 1 ? 'leve' : 'hora';
-    } else estado = aMinutos(paradas[0][1]) > ahora ? 'sin-salir' : 'sin-datos';
+    const { estado, retraso } = estadoDe(viaje, ahora, vivo);
     const estimada = minutos + retraso;
     if (estimada < ahora - antes || minutos > ahora + despues) continue;
     salidas.push({ tren, linea, hora: paradas[i][1], minutos, destino: paradas.at(-1)[0], estado, retraso, estimada });
   }
   return salidas.sort((a, b) => a.estimada - b.estimada || a.minutos - b.minutos).slice(0, maximo);
+}
+
+/** Según Renfe, el tren ya va por una parada posterior a la `i`: ya no se puede coger ahí. */
+function yaPasado([tren, linea, paradas], i, vivo) {
+  const actual = vivo.get(`${tren}|${linea}`)?.[3];
+  if (!actual) return false;
+  const k = paradas.findIndex(([p]) => p === actual);
+  return k > i;
+}
+
+/** Estado de un viaje ahora: bus, cancelado, retraso (TARDE o más), leve (1–4 min), hora, sin-salir o sin-datos. */
+export function estadoDe([tren, linea, paradas, bus], ahora, vivo) {
+  const real = vivo.get(`${tren}|${linea}`);
+  if (bus) return { estado: 'bus', retraso: 0 }; // servicio por carretera: sin seguimiento en directo
+  if (real?.[4]) return { estado: 'cancelado', retraso: 0 };
+  if (real && real[2] !== null) {
+    const retraso = Math.max(0, Math.round(real[2] / 60));
+    return { estado: retraso >= TARDE ? 'retraso' : retraso >= 1 ? 'leve' : 'hora', retraso };
+  }
+  return { estado: aMinutos(paradas[0][1]) > ahora ? 'sin-salir' : 'sin-datos', retraso: 0 };
+}
+
+/**
+ * Próximos trenes que van de una estación a otra (en ese sentido), con la hora a la que salen y llegan de verdad:
+ * la prevista más el retraso que lleva ahora el tren (si aún no ha llegado, puede recuperar o perder algo).
+ */
+export function proximosViajes(horario, origen, destino, ahora, vivo, { antes = 2, despues = 180, maximo = 8 } = {}) {
+  const viajes = [];
+  for (const viaje of horario) {
+    const [tren, linea, paradas] = viaje;
+    const i = paradas.findIndex(([p]) => p === origen);
+    if (i === -1) continue;
+    const j = paradas.findIndex(([p], k) => k > i && p === destino);
+    if (j === -1) continue; // no llega a destino, o va en el otro sentido
+    if (yaPasado(viaje, i, vivo)) continue;
+    const sale = aMinutos(paradas[i][1]);
+    const llega = aMinutos(paradas[j][1]);
+    const { estado, retraso } = estadoDe(viaje, ahora, vivo);
+    const saleEstimada = sale + retraso;
+    if (saleEstimada < ahora - antes || sale > ahora + despues) continue;
+    viajes.push({
+      tren, linea, estado, retraso, final: paradas.at(-1)[0],
+      sale, llega, saleEstimada, llegaEstimada: llega + retraso, duracion: llega - sale, paradas: j - i,
+    });
+  }
+  return viajes.sort((a, b) => a.saleEstimada - b.saleEstimada || a.sale - b.sale).slice(0, maximo);
+}
+
+/**
+ * Recorrido de un tren parada a parada, con la hora prevista y la estimada (prevista + retraso actual).
+ * `pasada`: ya ha pasado por ahí (según la parada que da Renfe como actual). `actual`: la parada en la que está o a la que llega.
+ */
+export function recorrido(viaje, vivo) {
+  const [tren, linea, paradas] = viaje;
+  const real = vivo.get(`${tren}|${linea}`);
+  const retraso = real && real[2] !== null && !real[4] ? Math.max(0, Math.round(real[2] / 60)) : 0;
+  const actual = real?.[3] ? paradas.findIndex(([p]) => p === real[3]) : -1;
+  return paradas.map(([parada, hora], k) => {
+    const minutos = aMinutos(hora);
+    return { parada, hora, minutos, estimada: minutos + retraso, pasada: actual > -1 && k < actual, actual: k === actual };
+  });
 }
 
 /** Resumen de la última captura: cuántos circulan, cuántos con retraso (≥ umbral) y el peor. */

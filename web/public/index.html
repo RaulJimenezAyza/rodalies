@@ -34,8 +34,6 @@
     <script type="module" src="app.js"></script>
   </head>
   <body>
-    <a class="saltar" href="#salidas">Ir a las salidas de tu estación</a>
-    <div class="escenario">
     <header class="cabecera">
       <a class="marca" href="/">
         <svg class="marca-logo" viewBox="0 0 24 24" aria-hidden="true">
@@ -45,6 +43,11 @@
         </svg>
         Rodalies al minuto
       </a>
+      <nav class="vistas" aria-label="Apartados">
+        <button type="button" data-vista="viaje" aria-current="page"><span class="vistas-icono" data-icono="tren"></span>Mi viaje</button>
+        <button type="button" data-vista="mapa"><span class="vistas-icono" data-icono="mapa"></span>Mapa</button>
+        <button type="button" data-vista="red"><span class="vistas-icono" data-icono="red"></span>Cómo va la red</button>
+      </nav>
       <div class="cabecera-der">
         <span class="frescura" id="frescura"></span>
         <time class="reloj" id="reloj" aria-label="Hora"></time>
@@ -53,76 +56,88 @@
     </header>
     <p class="aviso-datos" id="aviso-datos" role="status" hidden></p>
 
-    <section class="portada" aria-labelledby="titular">
-      <div class="panel-ahora">
-        <h1 class="titular" id="titular">Cargando los trenes…</h1>
-        <p class="ahora-texto" id="ahora-texto"></p>
-        <div class="mi-estacion" id="mi-estacion" aria-live="polite"></div>
-        <div class="red">
-          <h2 class="bloque-titulo">La red ahora <span id="red-total"></span></h2>
-          <p class="bloque-ayuda">Cada raya es un tren circulando, de los que van a su hora (gris) a los que van muy tarde (rojo).</p>
-          <div class="red-barras" id="red-barras" role="group" tabindex="0"></div>
-          <p class="red-lectura" id="red-lectura" aria-live="polite">Toca o pasa por encima de la raya para ver cada tren.</p>
-          <p class="red-leyenda" id="red-leyenda"></p>
-        </div>
-      </div>
-      <div class="peores">
-        <h2 class="bloque-titulo" id="peores-titulo">Los que van más tarde</h2>
-        <ol class="peores-lista" id="peores"></ol>
-      </div>
-      <div class="mapa-marco">
-        <div class="mapa" id="mapa" role="application" aria-label="Mapa de Rodalies con los trenes en directo"></div>
-      </div>
-      <div class="bajo-mapa">
-        <p class="leyenda-mapa">
-          <span class="leyenda-texto">Cada punto es un tren, del color de su línea. Su borde dice el retraso:</span>
-          <span><i class="anillo"></i>a su hora o casi</span>
-          <span><i class="anillo tarde"></i>5 min o más</span>
-          <span><i class="anillo muy-tarde"></i>10 min o más</span>
-        </p>
-        <div class="filtro">
-          <span class="filtro-etiqueta" id="filtro-etiqueta">Ver una línea</span>
-          <div class="filtro-lineas" id="filtro-lineas" role="group" aria-labelledby="filtro-etiqueta"></div>
-        </div>
-      </div>
-      <div class="fichas-linea" id="fichas-linea" aria-live="polite"></div>
-    </section>
-    </div>
-
     <main>
-      <section class="estacion" id="salidas" aria-labelledby="titulo-estacion">
-        <div class="estacion-cab">
-          <h2 id="titulo-estacion">Salidas de</h2>
-          <div class="buscador">
-            <span class="buscador-icono" id="buscador-icono"></span>
-            <input id="estacion" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
-              aria-controls="estaciones-lista" autocomplete="off" spellcheck="false" enterkeyhint="search"
-              placeholder="Busca tu estación (p. ej. sants, mataro)" aria-label="Tu estación" />
-            <ul class="opciones-estacion" id="estaciones-lista" role="listbox" aria-label="Estaciones" hidden></ul>
+      <!-- ============ Mi viaje: lo primero, lo que casi todo el mundo viene a buscar ============ -->
+      <section class="vista vista-viaje" id="vista-viaje" data-vista="viaje" aria-labelledby="titulo-viaje">
+        <h1 class="viaje-titulo" id="titulo-viaje">¿A dónde vas?</h1>
+        <div class="trayecto">
+          <div class="campo">
+            <label for="estacion">Desde</label>
+            <div class="buscador">
+              <span class="buscador-icono" id="buscador-icono"></span>
+              <input id="estacion" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
+                aria-controls="estaciones-lista" autocomplete="off" spellcheck="false" enterkeyhint="search"
+                placeholder="Tu estación (p. ej. sants)" />
+              <ul class="opciones-estacion" id="estaciones-lista" role="listbox" aria-label="Estaciones" hidden></ul>
+            </div>
+          </div>
+          <button type="button" class="intercambiar" id="intercambiar" aria-label="Cambiar origen y destino" title="Cambiar origen y destino">⇅</button>
+          <div class="campo">
+            <label for="destino">Hasta <span class="opcional">(si quieres saber a qué hora llegas)</span></label>
+            <div class="buscador">
+              <span class="buscador-icono" id="buscador-icono-2"></span>
+              <input id="destino" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
+                aria-controls="destinos-lista" autocomplete="off" spellcheck="false" enterkeyhint="search"
+                placeholder="Cualquier destino" />
+              <button type="button" class="borrar-destino" id="borrar-destino" aria-label="Quitar el destino" hidden>×</button>
+              <ul class="opciones-estacion" id="destinos-lista" role="listbox" aria-label="Estaciones" hidden></ul>
+            </div>
           </div>
         </div>
         <div class="atajos" id="atajos" aria-label="Estaciones frecuentes"></div>
-        <div class="tablero">
-          <div class="tablero-barra">
-            <span class="tablero-salidas">Salidas</span>
-            <strong class="tablero-estacion" id="tablero-estacion"></strong>
-          </div>
-          <div id="tablero" aria-live="polite"></div>
-        </div>
-        <p class="tablero-nota">
-          En grande, la hora a la que sale de verdad; si va con retraso, debajo y tachada, la prevista.
-          <strong>Aún no ha salido</strong>: el tren todavía no ha empezado su recorrido. <strong>Autobús</strong>: servicio alternativo por carretera (por obras), sin posición en directo. <strong>Sin seguimiento</strong>:
-          Renfe no da su posición ahora mismo. El retraso es el que lleva el tren ahora: si aún no ha llegado a tu
-          estación, puede recuperar o perder algo de tiempo por el camino.
-        </p>
+
+        <div id="resultado" aria-live="polite"></div>
+        <p class="tablero-nota" id="nota-viaje"></p>
       </section>
 
-      <section class="lineas" aria-labelledby="titulo-lineas">
-        <h2 id="titulo-lineas">Puntualidad por línea</h2>
-        <p class="seccion-sub" id="lineas-sub"></p>
-        <div class="tabla-lineas" id="tabla-lineas"></div>
+      <!-- ============ Mapa ============ -->
+      <section class="vista vista-mapa" id="vista-mapa" data-vista="mapa" aria-label="Mapa en directo" hidden>
+        <div class="mapa-marco">
+          <div class="mapa" id="mapa" role="application" aria-label="Mapa de Rodalies con los trenes en directo"></div>
+        </div>
+        <div class="bajo-mapa">
+          <p class="leyenda-mapa">
+            <span class="leyenda-texto">Cada punto es un tren, del color de su línea. Su borde dice el retraso:</span>
+            <span><i class="anillo"></i>a su hora o casi</span>
+            <span><i class="anillo tarde"></i>5 min o más</span>
+            <span><i class="anillo muy-tarde"></i>10 min o más</span>
+          </p>
+          <div class="filtro">
+            <span class="filtro-etiqueta" id="filtro-etiqueta">Ver una línea</span>
+            <div class="filtro-lineas" id="filtro-lineas" role="group" aria-labelledby="filtro-etiqueta"></div>
+          </div>
+        </div>
+        <div class="fichas-linea" id="fichas-linea" aria-live="polite"></div>
+      </section>
+
+      <!-- ============ Cómo va la red ============ -->
+      <section class="vista vista-red" id="vista-red" data-vista="red" aria-labelledby="titular" hidden>
+        <div class="red-cabeza">
+          <div class="panel-ahora">
+            <h1 class="titular" id="titular">Cargando los trenes…</h1>
+            <p class="ahora-texto" id="ahora-texto"></p>
+            <div class="red">
+              <h2 class="bloque-titulo">La red ahora <span id="red-total"></span></h2>
+              <p class="bloque-ayuda">Cada raya es un tren circulando, de los que van a su hora (gris) a los que van muy tarde (rojo).</p>
+              <div class="red-barras" id="red-barras" role="group" tabindex="0"></div>
+              <p class="red-lectura" id="red-lectura" aria-live="polite">Toca o pasa por encima de la raya para ver cada tren.</p>
+              <p class="red-leyenda" id="red-leyenda"></p>
+            </div>
+          </div>
+          <div class="peores">
+            <h2 class="bloque-titulo" id="peores-titulo">Los que van más tarde</h2>
+            <ol class="peores-lista" id="peores"></ol>
+          </div>
+        </div>
+        <section class="lineas" aria-labelledby="titulo-lineas">
+          <h2 id="titulo-lineas">Puntualidad por línea</h2>
+          <p class="seccion-sub" id="lineas-sub"></p>
+          <div class="tabla-lineas" id="tabla-lineas"></div>
+        </section>
       </section>
     </main>
+
+    <dialog class="hoja" id="hoja" aria-labelledby="hoja-titulo"></dialog>
 
     <footer class="pie">
       <p>
