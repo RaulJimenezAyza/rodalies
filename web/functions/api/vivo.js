@@ -9,7 +9,8 @@
 import { conCache, json } from '../_lib.js';
 
 const POSICIONES = 'https://gtfsrt.renfe.com/vehicle_positions.json';
-const VIAJE_RODALIES = /^5191M(\d+)([A-Z].*)$/;
+// El prefijo cambia con el día de servicio: 5191M el martes, 5192X el miércoles… (51 = Rodalies).
+const VIAJE_RODALIES = /^51\d{2}[A-Z](\d+)([A-Z].*)$/;
 const ESTADO = { STOPPED_AT: 'P', INCOMING_AT: 'L', IN_TRANSIT_TO: 'C' };
 
 export const onRequestGet = (contexto) =>

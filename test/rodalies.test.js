@@ -11,7 +11,7 @@ test('se queda solo con los trenes de Rodalies y los compacta', () => {
       { tripUpdate: { trip: { tripId: '3091M23522C1', scheduleRelationship: 'SCHEDULED' }, delay: 480,
         stopTimeUpdate: [{ stopId: '50703' }] } },
       { tripUpdate: { trip: { tripId: '5191M15001R11', scheduleRelationship: 'CANCELED' } } },
-      { tripUpdate: { trip: { tripId: '5191M77524R4', scheduleRelationship: 'SCHEDULED' },
+      { tripUpdate: { trip: { tripId: '5192X77524R4', scheduleRelationship: 'SCHEDULED' }, // otro día de servicio
         stopTimeUpdate: [{ arrival: { delay: 120 }, stopId: '72205' }] } },
     ],
   };

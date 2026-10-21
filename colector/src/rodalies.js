@@ -1,11 +1,13 @@
 // Cómo se reconoce Rodalies dentro del tiempo real de Renfe (funciones puras, con tests).
 //
 // Los feeds GTFS-RT de Renfe traen todas las redes de Cercanías juntas. El identificador de cada viaje
-// lleva la red, el número de tren y la línea: "5191M28289R2S" = red 5191 (Rodalies de Catalunya),
+// lleva la red, el número de tren y la línea: "5191M28289R2S" = red 51 (Rodalies de Catalunya) con un
+// prefijo de día de servicio (91M, 92X…, cambia cada día),
 // tren 28289, línea R2S. En los avisos, las rutas de Rodalies empiezan por "51T" y acaban en la línea
 // ("51T0244R3" → R3).
 
-const VIAJE_RODALIES = /^5191M(\d+)([A-Z].*)$/;
+// El prefijo cambia con el día de servicio: 5191M el martes, 5192X el miércoles… (51 = Rodalies).
+const VIAJE_RODALIES = /^51\d{2}[A-Z](\d+)([A-Z].*)$/;
 const RUTA_RODALIES = /^51T\d+([A-Z].*)$/;
 
 /**
