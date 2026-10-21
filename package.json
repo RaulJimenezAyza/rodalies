@@ -8,7 +8,8 @@
     "horarios": "node scripts/horarios.mjs",
     "desplegar:web": "npm run horarios && cd web && wrangler pages deploy --branch main --commit-dirty=true",
     "web": "cd web && wrangler pages dev --port 8790",
-    "local": "node scripts/local.mjs"
+    "local": "node scripts/local.mjs",
+    "sugerencias": "wrangler d1 execute rodalies --remote --command \"SELECT datetime(ts, 'unixepoch', 'localtime') AS cuando, texto, contacto, origen FROM sugerencias ORDER BY ts DESC LIMIT 50\""
   },
   "devDependencies": {
     "fflate": "^0.8.3",

@@ -3,8 +3,22 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Rodalies al minuto · Todos los trenes en directo</title>
-    <meta name="description" content="Mapa en directo de todos los trenes de Rodalies con su retraso real, las próximas salidas de tu estación y la puntualidad de cada línea." />
+    <title>Rodalies al minuto · ¿Va tarde tu tren? Retrasos en directo</title>
+    <meta name="description" content="¿Va tarde tu tren de Rodalies? Pon de dónde a dónde vas y mira a qué hora sale y llega de verdad, con el retraso en directo. Mapa de todos los trenes y puntualidad de cada línea (R1, R2, R3, R4…)." />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Rodalies al minuto",
+        "url": "https://rodalies.reloda.es/",
+        "description": "Retrasos de Rodalies de Catalunya en directo: salidas de cada estación, hora real de llegada, mapa de los trenes y puntualidad por línea.",
+        "applicationCategory": "TravelApplication",
+        "operatingSystem": "Web",
+        "inLanguage": "es",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+      }
+    </script>
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)" />
     <script>
@@ -138,6 +152,31 @@
     </main>
 
     <dialog class="hoja" id="hoja" aria-labelledby="hoja-titulo"></dialog>
+
+    <aside class="sugerir">
+      <p><strong>¿Echas algo en falta o algo no funciona?</strong> Esta web la hace una persona en su tiempo libre: cuéntalo y lo miramos.</p>
+      <button type="button" class="boton-sugerir" id="abrir-sugerencia">Enviar una sugerencia</button>
+    </aside>
+
+    <dialog class="hoja hoja-sugerencia" id="dialogo-sugerencia" aria-labelledby="sugerencia-titulo">
+      <form id="form-sugerencia" novalidate>
+        <div class="hoja-cab">
+          <div><h2 id="sugerencia-titulo">Tu sugerencia</h2><p>Ideas, fallos, estaciones que no salen bien…</p></div>
+          <button type="button" class="hoja-cerrar" data-cerrar-sugerencia>Cerrar</button>
+        </div>
+        <div class="sugerencia-cuerpo">
+          <label for="sugerencia-texto">¿Qué añadirías o cambiarías?</label>
+          <textarea id="sugerencia-texto" name="texto" rows="5" maxlength="2000" required
+            placeholder="Por ejemplo: me gustaría que avisara cuando mi tren va tarde"></textarea>
+          <label for="sugerencia-contacto">Tu email <span class="opcional">(opcional, solo si quieres que te respondamos)</span></label>
+          <input id="sugerencia-contacto" name="contacto" type="email" autocomplete="email" maxlength="200" />
+          <!-- Trampa para robots: una persona no ve ni rellena este campo -->
+          <input class="trampa" name="web" tabindex="-1" autocomplete="off" aria-hidden="true" />
+          <button type="submit" class="boton-enviar">Enviar</button>
+          <p class="sugerencia-estado" id="sugerencia-estado" role="status"></p>
+        </div>
+      </form>
+    </dialog>
 
     <footer class="pie">
       <p>

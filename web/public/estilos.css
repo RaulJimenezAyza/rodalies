@@ -672,3 +672,31 @@ button.salida:last-child { border-bottom: 0; }
 .hoja .hoja-cab { position: static; }
 .hoja .paradas { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 8px; border-top: 1px solid var(--linea); margin-top: 14px; padding-top: 6px; }
 .hoja .hoja-nota { border-top: 1px solid var(--linea); padding-top: 10px; padding-bottom: 14px; }
+
+/* Buzón de sugerencias */
+.sugerir {
+  width: min(1200px, calc(100% - 40px)); margin: 8px auto 24px; padding: 18px 20px; border-radius: var(--r-m);
+  background: var(--fondo-2); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px;
+}
+.sugerir p { max-width: 70ch; color: var(--tinta-2); }
+.sugerir strong { color: var(--tinta); }
+.boton-sugerir, .boton-enviar {
+  min-height: 48px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--tinta); color: var(--fondo);
+  font-weight: 800; cursor: pointer; white-space: nowrap;
+}
+.boton-sugerir:hover, .boton-enviar:hover { opacity: 0.9; }
+.boton-enviar:disabled { opacity: 0.5; cursor: wait; }
+.hoja-sugerencia[open] { display: block; overflow: auto; }
+.sugerencia-cuerpo { display: grid; gap: 8px; padding: 16px 18px 20px; }
+.sugerencia-cuerpo label { font-weight: 700; margin-top: 6px; }
+.sugerencia-cuerpo textarea, .sugerencia-cuerpo input {
+  width: 100%; padding: 12px 14px; border-radius: var(--r-m); border: 1.5px solid var(--linea-fuerte); background: var(--fondo);
+  font: inherit; font-size: 1rem; resize: vertical;
+}
+.sugerencia-cuerpo textarea:focus-visible, .sugerencia-cuerpo input:focus-visible { outline: 3px solid var(--ambar); outline-offset: 1px; border-color: var(--tinta); }
+.sugerencia-cuerpo .boton-enviar { justify-self: start; margin-top: 8px; }
+.trampa { position: absolute !important; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.sugerencia-estado { min-height: 1.5em; font-weight: 600; }
+.sugerencia-estado.bien { color: var(--bien); }
+.sugerencia-estado.mal { color: var(--mal); }
+@media (max-width: 700px) { .sugerir { width: calc(100% - 32px); } }

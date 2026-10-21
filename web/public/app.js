@@ -71,6 +71,7 @@ async function iniciar() {
   prepararReloj();
   prepararCafe();
   prepararVistas();
+  prepararSugerencias();
   $('buscador-icono').innerHTML = icono('buscar');
   $('buscador-icono-2').innerHTML = icono('buscar');
   try {
@@ -809,6 +810,52 @@ async function cargarLineas() {
         <span class="puesto-datos"><strong>${l.puntuales} de ${l.con_dato}</strong> puntuales<br>${numero((l.retraso_medio ?? 0) / 60, 1)} min de media${l.cancelados ? ` · ${l.cancelados} cancel.` : ''}</span>
       </li>`).join('')}</ol>
     <p class="ranking-escala"><span>Las rayitas marcan el 75 % y el 90 %.</span></p>`;
+}
+
+// ---------- Sugerencias ----------
+function prepararSugerencias() {
+  const dialogo = $('dialogo-sugerencia');
+  const form = $('form-sugerencia');
+  const aviso = $('sugerencia-estado');
+  $('abrir-sugerencia').addEventListener('click', () => {
+    aviso.textContent = '';
+    aviso.className = 'sugerencia-estado';
+    dialogo.showModal();
+    $('sugerencia-texto').focus();
+  });
+  dialogo.addEventListener('click', (e) => {
+    if (e.target === dialogo || e.target.closest('[data-cerrar-sugerencia]')) dialogo.close();
+  });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const datos = Object.fromEntries(new FormData(form));
+    if (datos.texto.trim().length < 5) {
+      aviso.textContent = 'Escribe un poco más, por favor.';
+      aviso.className = 'sugerencia-estado mal';
+      return;
+    }
+    const boton = form.querySelector('.boton-enviar');
+    boton.disabled = true;
+    aviso.textContent = 'Enviando…';
+    aviso.className = 'sugerencia-estado';
+    try {
+      const r = await fetch('/api/sugerencia', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ...datos, origen: estado.vista }), signal: AbortSignal.timeout(12_000),
+      });
+      const respuesta = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(respuesta.error || 'No se ha podido enviar.');
+      form.reset();
+      aviso.textContent = '¡Gracias! La hemos recibido.';
+      aviso.className = 'sugerencia-estado bien';
+      setTimeout(() => dialogo.open && dialogo.close(), 2200);
+    } catch (error) {
+      aviso.textContent = `${error.message} Inténtalo de nuevo en un rato.`;
+      aviso.className = 'sugerencia-estado mal';
+    } finally {
+      boton.disabled = false;
+    }
+  });
 }
 
 // ---------- Modo claro / oscuro ----------

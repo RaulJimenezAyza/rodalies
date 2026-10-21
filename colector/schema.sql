@@ -37,3 +37,14 @@ CREATE INDEX IF NOT EXISTS resumen_linea ON resumen (linea, fecha);
 
 -- Por dónde va el resumen (ts de la última captura sumada).
 CREATE TABLE IF NOT EXISTS progreso (clave TEXT PRIMARY KEY, valor INTEGER);
+
+-- Sugerencias que deja la gente desde la web (formulario «¿Echas algo en falta?»).
+CREATE TABLE IF NOT EXISTS sugerencias (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts INTEGER NOT NULL,     -- s UNIX
+  texto TEXT NOT NULL,
+  contacto TEXT,           -- opcional: email o lo que quieran dejar
+  origen TEXT,             -- apartado desde el que se envió (viaje, mapa, red)
+  ip_hash TEXT             -- huella de la IP (no la IP), solo para frenar envíos en masa
+);
+CREATE INDEX IF NOT EXISTS sugerencias_ip ON sugerencias (ip_hash, ts);
