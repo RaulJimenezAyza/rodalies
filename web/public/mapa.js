@@ -8,6 +8,7 @@
 // sin puntos de interés, sin fronteras y solo con los nombres de ciudades y pueblos grandes.
 
 import { MUY_TARDE, TARDE } from './tablero.js';
+import { t } from './i18n.js';
 
 const ESTILOS = {
   claro: 'https://tiles.openfreemap.org/styles/positron',
@@ -33,15 +34,15 @@ export function crearMapa({ contenedor, oscuro, trazados, paradas, alElegirEstac
     dragRotate: false,
     attributionControl: { compact: true },
     locale: {
-      'Map.Title': 'Mapa de Rodalies',
-      'CooperativeGesturesHandler.WindowsHelpText': 'Usa Ctrl + rueda para hacer zoom en el mapa',
-      'CooperativeGesturesHandler.MacHelpText': 'Usa ⌘ + rueda para hacer zoom en el mapa',
-      'CooperativeGesturesHandler.MobileHelpText': 'Usa dos dedos para mover el mapa',
-      'NavigationControl.ZoomIn': 'Acercar',
-      'NavigationControl.ZoomOut': 'Alejar',
-      'AttributionControl.ToggleAttribution': 'Créditos del mapa',
-      'FullscreenControl.Enter': 'Mapa a pantalla completa',
-      'FullscreenControl.Exit': 'Salir de pantalla completa',
+      'Map.Title': t('Mapa de Rodalies'),
+      'CooperativeGesturesHandler.WindowsHelpText': t('Usa Ctrl + rueda para hacer zoom en el mapa'),
+      'CooperativeGesturesHandler.MacHelpText': t('Usa ⌘ + rueda para hacer zoom en el mapa'),
+      'CooperativeGesturesHandler.MobileHelpText': t('Usa dos dedos para mover el mapa'),
+      'NavigationControl.ZoomIn': t('Acercar'),
+      'NavigationControl.ZoomOut': t('Alejar'),
+      'AttributionControl.ToggleAttribution': t('Créditos del mapa'),
+      'FullscreenControl.Enter': t('Mapa a pantalla completa'),
+      'FullscreenControl.Exit': t('Salir de pantalla completa'),
     },
   });
   mapa.touchZoomRotate.disableRotation();
@@ -299,7 +300,7 @@ class ControlVerTodo {
   onAdd() {
     this.caja = document.createElement('div');
     this.caja.className = 'maplibregl-ctrl maplibregl-ctrl-group';
-    this.caja.innerHTML = `<button type="button" class="ver-todo" aria-label="Ver toda la red" title="Ver toda la red">
+    this.caja.innerHTML = `<button type="button" class="ver-todo" aria-label="${t('Ver toda la red')}" title="${t('Ver toda la red')}">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/></svg></button>`;
     this.caja.querySelector('button').addEventListener('click', this.alPulsar);
     return this.caja;

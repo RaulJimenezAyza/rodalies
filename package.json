@@ -6,10 +6,11 @@
     "test": "node --test",
     "desplegar:colector": "wrangler deploy --config colector/wrangler.toml",
     "horarios": "node scripts/horarios.mjs",
-    "desplegar:web": "npm run horarios && cd web && wrangler pages deploy --branch main --commit-dirty=true",
+    "desplegar:web": "npm run horarios && npm run idiomas && cd web && wrangler pages deploy --branch main --commit-dirty=true",
     "web": "cd web && wrangler pages dev --port 8790",
     "local": "node scripts/local.mjs",
-    "sugerencias": "wrangler d1 execute rodalies --remote --command \"SELECT datetime(ts, 'unixepoch', 'localtime') AS cuando, texto, contacto, origen FROM sugerencias ORDER BY ts DESC LIMIT 50\""
+    "sugerencias": "wrangler d1 execute rodalies --remote --command \"SELECT datetime(ts, 'unixepoch', 'localtime') AS cuando, texto, contacto, origen FROM sugerencias ORDER BY ts DESC LIMIT 50\"",
+    "idiomas": "node scripts/idiomas.mjs"
   },
   "devDependencies": {
     "fflate": "^0.8.3",

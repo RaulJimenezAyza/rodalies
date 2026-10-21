@@ -36,6 +36,9 @@ jobs:
       - name: Horarios nuevos desde el GTFS de Renfe
         run: npm run horarios
 
+      - name: Página en catalán
+        run: npm run idiomas
+
       - name: Publicar la web
         working-directory: web
         env:

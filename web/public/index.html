@@ -3,6 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Las rutas relativas (estilos.css, datos/…) valen igual desde / que desde /ca/ -->
+    <base href="/" />
     <title>Rodalies al minuto · ¿Va tarde tu tren? Retrasos en directo</title>
     <meta name="description" content="¿Va tarde tu tren de Rodalies? Pon de dónde a dónde vas y mira a qué hora sale y llega de verdad, con el retraso en directo. Mapa de todos los trenes y puntualidad de cada línea (R1, R2, R3, R4…)." />
     <script type="application/ld+json">
@@ -23,8 +25,19 @@
     <meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)" />
     <script>
       try { const t = localStorage.getItem('tema'); if (t) document.documentElement.dataset.theme = t; } catch {}
+      // Idioma: el que eligió la persona; si no eligió, catalán si su navegador está en catalán.
+      try {
+        const elegido = localStorage.getItem('idioma');
+        const enCa = location.pathname.startsWith('/ca');
+        const quiere = elegido || ((navigator.language || '').toLowerCase().startsWith('ca') ? 'ca' : '');
+        if (quiere === 'ca' && !enCa) location.replace('/ca/' + location.search);
+        else if (elegido === 'es' && enCa) location.replace('/' + location.search);
+      } catch {}
     </script>
     <link rel="canonical" href="https://rodalies.reloda.es/" />
+    <link rel="alternate" hreflang="es" href="https://rodalies.reloda.es/" />
+    <link rel="alternate" hreflang="ca" href="https://rodalies.reloda.es/ca/" />
+    <link rel="alternate" hreflang="x-default" href="https://rodalies.reloda.es/" />
     <link rel="icon" href="icono.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="manifest" href="manifest.webmanifest" />
@@ -63,6 +76,10 @@
         <button type="button" data-vista="red"><span class="vistas-icono" data-icono="red"></span>Cómo va la red</button>
       </nav>
       <div class="cabecera-der">
+        <div class="idiomas" role="group" aria-label="Idioma / Idioma">
+          <a href="/" hreflang="es" lang="es" data-idioma="es" aria-current="true" title="Castellano">ES</a>
+          <a href="/ca/" hreflang="ca" lang="ca" data-idioma="ca" title="Català">CA</a>
+        </div>
         <span class="frescura" id="frescura"></span>
         <time class="reloj" id="reloj" aria-label="Hora"></time>
         <button type="button" class="boton-tema" id="boton-tema"></button>

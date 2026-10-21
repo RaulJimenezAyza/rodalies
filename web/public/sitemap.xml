@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://rodalies.reloda.es/</loc><changefreq>always</changefreq><priority>1.0</priority></url>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://rodalies.reloda.es/</loc><changefreq>always</changefreq><priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://rodalies.reloda.es/" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://rodalies.reloda.es/ca/" />
+  </url>
+  <url>
+    <loc>https://rodalies.reloda.es/ca/</loc><changefreq>always</changefreq><priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://rodalies.reloda.es/" />
+    <xhtml:link rel="alternate" hreflang="ca" href="https://rodalies.reloda.es/ca/" />
+  </url>
   <url><loc>https://rodalies.reloda.es/?vista=mapa</loc><changefreq>always</changefreq><priority>0.6</priority></url>
   <url><loc>https://rodalies.reloda.es/?vista=red</loc><changefreq>always</changefreq><priority>0.6</priority></url>
 </urlset>

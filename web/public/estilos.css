@@ -700,3 +700,17 @@ button.salida:last-child { border-bottom: 0; }
 .sugerencia-estado.bien { color: var(--bien); }
 .sugerencia-estado.mal { color: var(--mal); }
 @media (max-width: 700px) { .sugerir { width: calc(100% - 32px); } }
+
+/* Selector de idioma */
+.idiomas { display: flex; padding: 3px; border-radius: 999px; background: var(--fondo-2); }
+.idiomas a {
+  min-width: 40px; min-height: 38px; display: grid; place-items: center; padding: 0 8px; border-radius: 999px;
+  font-weight: 800; font-size: 0.8125rem; text-decoration: none; color: var(--tinta-3);
+}
+.idiomas a[aria-current='true'] { background: var(--fondo); color: var(--tinta); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); }
+@media (max-width: 700px) {
+  .cabecera-der { gap: 8px; }
+  .idiomas a { min-width: 34px; min-height: 34px; padding: 0 6px; }
+  .reloj { font-size: 1.25rem; }
+}
+@media (max-width: 480px) { .reloj { display: none; } .cabecera { flex-wrap: nowrap; } .marca { font-size: 1rem; gap: 8px; } }

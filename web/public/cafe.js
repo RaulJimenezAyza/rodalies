@@ -2,6 +2,8 @@
 // En el ordenador, una pastilla abajo a la derecha con su ✕. En el móvil, una taza redonda que se puede
 // arrastrar: si se lanza fuera de la pantalla, se va (y vuelve a los 5 minutos); si no, vuelve a su sitio con un rebote.
 
+import { t } from './i18n.js';
+
 const ENLACE = 'https://ko-fi.com/rauljimenezz';
 // Formulario de Ko-fi para incrustar: se paga sin salir de la web (PayPal abre su propia ventanita).
 const INCRUSTADO = `${ENLACE}/?hidefeed=true&widget=true&embed=true&preview=true`;
@@ -32,20 +34,20 @@ function abrirVentana() {
   if (!ventana) {
     ventana = document.createElement('dialog');
     ventana.className = 'cafe-ventana';
-    ventana.setAttribute('aria-label', 'Invítame a un café');
+    ventana.setAttribute('aria-label', t('Invítame a un café'));
     ventana.innerHTML = `
       <div class="cafe-ventana-cab">
-        <strong>${TAZA} Invítame a un café</strong>
-        <button type="button" class="boton-cerrar" aria-label="Cerrar">×</button>
+        <strong>${TAZA} ${t('Invítame a un café')}</strong>
+        <button type="button" class="boton-cerrar" aria-label="${t('Cerrar')}">×</button>
       </div>
-      <div class="cafe-ventana-cuerpo"><p class="cafe-cargando">Cargando Ko-fi…</p></div>
-      <p class="cafe-ventana-pie">Pago seguro con Ko-fi (PayPal o tarjeta). ¿No carga? <a href="${ENLACE}" target="_blank" rel="noopener">Ábrelo en Ko-fi</a>.</p>`;
+      <div class="cafe-ventana-cuerpo"><p class="cafe-cargando">${t('Cargando Ko-fi…')}</p></div>
+      <p class="cafe-ventana-pie">${t('Pago seguro con Ko-fi (PayPal o tarjeta). ¿No carga?')} <a href="${ENLACE}" target="_blank" rel="noopener">${t('Ábrelo en Ko-fi')}</a>.</p>`;
     document.body.append(ventana);
     ventana.querySelector('.boton-cerrar').addEventListener('click', () => ventana.close());
     // Tocar fuera de la ventana la cierra.
     ventana.addEventListener('click', (e) => { if (e.target === ventana) ventana.close(); });
     const marco = document.createElement('iframe');
-    marco.title = 'Invítame a un café en Ko-fi';
+    marco.title = t('Invítame a un café en Ko-fi');
     marco.src = INCRUSTADO;
     marco.addEventListener('load', () => ventana.querySelector('.cafe-cargando')?.remove());
     ventana.querySelector('.cafe-ventana-cuerpo').append(marco);
@@ -58,10 +60,10 @@ export function prepararCafe() {
   const caja = document.createElement('div');
   caja.className = 'cafe';
   caja.innerHTML = `
-    <a class="cafe-boton" href="${ENLACE}" target="_blank" rel="noopener" aria-label="Invítame a un café (Ko-fi)" draggable="false">
-      ${TAZA}<span class="cafe-texto">Invítame a un café</span></a>
-    <button type="button" class="cafe-cerrar" aria-label="Quitar el botón del café">×</button>
-    <span class="cafe-pista" aria-hidden="true">Lánzame fuera si molesto</span>`;
+    <a class="cafe-boton" href="${ENLACE}" target="_blank" rel="noopener" aria-label="${t('Invítame a un café (Ko-fi)')}" draggable="false">
+      ${TAZA}<span class="cafe-texto">${t('Invítame a un café')}</span></a>
+    <button type="button" class="cafe-cerrar" aria-label="${t('Quitar el botón del café')}">×</button>
+    <span class="cafe-pista" aria-hidden="true">${t('Lánzame fuera si molesto')}</span>`;
   document.body.append(caja);
   setTimeout(() => caja.classList.add('visible'), APARECE_TRAS);
 

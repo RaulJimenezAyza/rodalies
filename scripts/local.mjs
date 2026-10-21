@@ -22,7 +22,7 @@ createServer(async (req, res) => {
     }
     // El service worker no se sirve en local, para que nunca enseñe una versión vieja de la caché.
     if (url.pathname === '/sw.js') return res.writeHead(404).end();
-    const ruta = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname.slice(1));
+    const ruta = decodeURIComponent(url.pathname.slice(1)).replace(/(^|\/)$/, '$1index.html'); // /ca/ → ca/index.html, como Pages
     if (ruta.includes('..')) return res.writeHead(400).end();
     const contenido = await readFile(new URL(ruta, RAIZ));
     res.writeHead(200, { 'Content-Type': TIPOS[extname(ruta)] ?? 'application/octet-stream', 'Cache-Control': 'no-store' });
