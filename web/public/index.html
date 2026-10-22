@@ -24,6 +24,8 @@
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)" />
     <script>
+      // Todo el mundo a rodalies.reloda.es (las versiones de prueba, <hash>.rodalies-reloda.pages.dev, se quedan).
+      if (location.hostname === 'rodalies-reloda.pages.dev') location.replace('https://rodalies.reloda.es' + location.pathname + location.search + location.hash);
       try { const t = localStorage.getItem('tema'); if (t) document.documentElement.dataset.theme = t; } catch {}
       // Idioma: el que eligió la persona; si no eligió, catalán si su navegador está en catalán.
       try {

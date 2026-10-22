@@ -156,7 +156,8 @@ function paginaIndice(idioma) {
     <link rel="alternate" hreflang="es" href="${DOMINIO}/estaciones/" />
     <link rel="alternate" hreflang="ca" href="${DOMINIO}/ca/estacions/" />
     <link rel="icon" href="icono.svg" type="image/svg+xml" />
-    <script>try { const t = localStorage.getItem('tema'); if (t) document.documentElement.dataset.theme = t; } catch {}</script>
+    <script>if (location.hostname === 'rodalies-reloda.pages.dev') location.replace('https://rodalies.reloda.es' + location.pathname + location.search + location.hash);
+      try { const t = localStorage.getItem('tema'); if (t) document.documentElement.dataset.theme = t; } catch {}</script>
     <link rel="stylesheet" href="estilos.css" />
   </head>
   <body>
